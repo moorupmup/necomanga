@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import {
   Bookmark,
   History,
@@ -10,6 +10,7 @@ import {
 import { useBookmarksStore } from '~/stores/bookmarks'
 import { useHistoryStore } from '~/stores/history'
 import { useAppUpdate } from '~/composables/useAppUpdate'
+import { registerBackHandler } from '~/composables/useBackButton'
 import SearchBar from '~/components/SearchBar.vue'
 
 const bookmarksStore = useBookmarksStore()
@@ -24,6 +25,24 @@ const historyCount = computed(() => historyStore.history.length)
 const toggleMobileSearch = () => {
   isMobileSearchOpen.value = !isMobileSearchOpen.value
 }
+
+let unregisterBack: (() => void) | null = null
+
+onMounted(() => {
+  unregisterBack = registerBackHandler(() => {
+    if (isMobileSearchOpen.value) {
+      isMobileSearchOpen.value = false
+      return true
+    }
+    return false
+  })
+})
+
+onUnmounted(() => {
+  if (unregisterBack) {
+    unregisterBack()
+  }
+})
 </script>
 
 <template>

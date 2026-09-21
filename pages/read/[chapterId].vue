@@ -17,6 +17,7 @@ import {
 import { useReManga, isNativePlatform } from '~/composables/useReManga'
 import { useReaderSettingsStore } from '~/stores/readerSettings'
 import { useHistoryStore } from '~/stores/history'
+import { registerBackHandler } from '~/composables/useBackButton'
 import SpinnerArrow from '~/components/SpinnerArrow.vue'
 
 const route = useRoute()
@@ -173,15 +174,28 @@ watch(chapterId, () => {
   window.scrollTo({ top: 0, behavior: 'instant' })
 })
 
+let unregisterBack: (() => void) | null = null
+
 onMounted(() => {
   loadChapterData()
   window.addEventListener('keydown', handleKeyDown)
   window.addEventListener('scroll', handleScroll, { passive: true })
+
+  unregisterBack = registerBackHandler(() => {
+    if (isSettingsOpen.value) {
+      isSettingsOpen.value = false
+      return true
+    }
+    return false
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('scroll', handleScroll)
+  if (unregisterBack) {
+    unregisterBack()
+  }
 })
 </script>
 
