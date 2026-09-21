@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  layout: false
+})
+
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -259,22 +263,24 @@ onUnmounted(() => {
       <!-- Right: Mobile Quick Nav + Settings -->
       <div class="flex items-center gap-1.5 sm:gap-2 relative shrink-0">
         <!-- Quick Chapter Buttons on Mobile -->
-        <div class="sm:hidden flex items-center gap-1 bg-zinc-900/80 p-1 rounded-xl border border-zinc-800">
+        <div class="sm:hidden flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-xl border border-zinc-800">
           <button
             type="button"
             :disabled="!prevChapter"
-            class="p-1.5 rounded-lg text-zinc-300 hover:text-white disabled:opacity-30"
+            class="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-zinc-300 hover:text-white disabled:opacity-25 active:scale-95 transition-transform"
+            title="Предыдущая глава"
             @click="prevChapter && goToChapter(prevChapter.id)"
           >
             <ChevronLeft class="w-4 h-4" />
           </button>
-          <span class="text-xs font-bold px-1 text-zinc-200">
+          <span class="text-xs font-bold px-1.5 text-zinc-200 min-w-[28px] text-center font-mono">
             {{ chapterInfo?.chapter || '...' }}
           </span>
           <button
             type="button"
             :disabled="!nextChapter"
-            class="p-1.5 rounded-lg text-zinc-300 hover:text-white disabled:opacity-30"
+            class="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-zinc-300 hover:text-white disabled:opacity-25 active:scale-95 transition-transform"
+            title="Следующая глава"
             @click="nextChapter && goToChapter(nextChapter.id)"
           >
             <ChevronRight class="w-4 h-4" />
@@ -283,7 +289,7 @@ onUnmounted(() => {
 
         <button
           type="button"
-          class="p-2 sm:p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-colors"
+          class="min-w-[40px] min-h-[40px] p-2 sm:p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-colors flex items-center justify-center active:scale-95"
           title="Настройки читалки"
           @click="isSettingsOpen = !isSettingsOpen"
         >
@@ -376,6 +382,9 @@ onUnmounted(() => {
         ></div>
 
         <div class="relative bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-5 pb-safe space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
+          <!-- Drag Handle Indicator -->
+          <div class="w-10 h-1 bg-zinc-700 rounded-full mx-auto -mt-1 mb-2"></div>
+
           <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
             <div class="flex items-center gap-2">
               <Settings class="w-5 h-5 text-amber-400" />

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useWindowScroll } from '@vueuse/core'
 import {
@@ -14,7 +14,10 @@ import {
   Star,
   Eye,
   Lock,
-  ArrowUp
+  ArrowUp,
+  X,
+  Check,
+  Trash2
 } from 'lucide-vue-next'
 import {
   useReManga,
@@ -22,6 +25,7 @@ import {
   type VolumeGroup,
   type ChapterItem
 } from '~/composables/useReManga'
+import { registerBackHandler } from '~/composables/useBackButton'
 import {
   useBookmarksStore,
   BOOKMARK_LABELS,
@@ -49,6 +53,7 @@ const error = ref<string | null>(null)
 const isSortAsc = ref(true)
 const chapterSearch = ref('')
 const isBookmarkMenuOpen = ref(false)
+const isDescriptionExpanded = ref(false)
 
 const { y: scrollY } = useWindowScroll()
 
@@ -160,8 +165,23 @@ const isChapterRead = (chapterId: string, chapterNumber: string) => {
   return curNum <= readNum
 }
 
+let unregisterBack: (() => void) | null = null
+
 onMounted(() => {
   loadManga()
+  unregisterBack = registerBackHandler(() => {
+    if (isBookmarkMenuOpen.value) {
+      isBookmarkMenuOpen.value = false
+      return true
+    }
+    return false
+  })
+})
+
+onUnmounted(() => {
+  if (unregisterBack) {
+    unregisterBack()
+  }
 })
 </script>
 
@@ -201,10 +221,90 @@ onMounted(() => {
     <div class="relative z-10 w-full px-3.5 sm:px-8 xl:px-12 pt-4 sm:pt-8 md:pt-10 space-y-6 sm:space-y-10 pb-32">
       
       <!-- Top Info Section (Poster + Details) -->
-      <div class="flex flex-col lg:flex-row gap-6 lg:gap-10 items-center lg:items-start">
-        
-        <!-- Poster Column -->
-        <div class="w-full max-w-[240px] sm:max-w-[280px] lg:max-w-none lg:w-[280px] xl:w-[320px] flex-shrink-0 flex flex-col items-center space-y-3 sm:space-y-4">
+      <div class="flex flex-col sm:flex-row gap-5 sm:gap-8 lg:gap-10 items-start">
+
+        <!-- MOBILE-ONLY HERO (< sm): Compact Side-by-Side Cover + Info -->
+        <div class="flex sm:hidden gap-3.5 w-full items-start">
+          <div class="relative w-28 shrink-0 aspect-[2/3] rounded-xl overflow-hidden shadow-xl border border-zinc-800 bg-zinc-950">
+            <AsyncImage
+              :src="manga.coverUrlOriginal || manga.coverUrl"
+              :alt="manga.title"
+              aspect-class="aspect-[2/3]"
+            />
+            <div class="absolute top-1.5 left-1.5">
+              <span class="glass-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded text-zinc-100 shadow-md">
+                {{ manga.type || 'Манга' }}
+              </span>
+            </div>
+          </div>
+          <div class="flex-1 min-w-0 space-y-1.5 pt-0.5">
+            <div v-if="manga.avgRating" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-black rounded-lg bg-amber-400 text-zinc-950 font-mono">
+              <Star class="w-3 h-3 fill-current" />
+              {{ manga.avgRating }}
+            </div>
+            <h1 class="text-base font-black text-white tracking-tight leading-snug line-clamp-2">
+              {{ manga.title }}
+            </h1>
+            <p v-if="manga.altTitle" class="text-xs text-zinc-400 line-clamp-1">
+              {{ manga.altTitle }}
+            </p>
+            <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <span :class="['inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold border', getStatusInfo(manga.status).badgeClass]">
+                <span :class="['w-1.5 h-1.5 rounded-full', getStatusInfo(manga.status).dotClass]"></span>
+                {{ getStatusInfo(manga.status).text }}
+              </span>
+              <span v-if="allChapters.length" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-900/90 text-zinc-300 text-[11px] font-semibold border border-zinc-800">
+                <BookOpen class="w-3 h-3 text-zinc-400" />
+                {{ allChapters.length }} гл.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- MOBILE-ONLY CTAs (< sm): Thumb-zone actions -->
+        <div class="flex sm:hidden flex-col gap-2 w-full">
+          <NuxtLink
+            v-if="lastRead"
+            :to="`/read/${lastRead.chapterId}?dir=${manga.id}`"
+            class="w-full min-h-[46px] py-2.5 px-4 rounded-xl bg-amber-400 active:bg-amber-300 text-zinc-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
+          >
+            <BookOpen class="w-4 h-4" />
+            <span>Продолжить (Гл. {{ lastRead.chapterNumber }})</span>
+          </NuxtLink>
+          <NuxtLink
+            v-else-if="firstChapter"
+            :to="`/read/${firstChapter.id}?dir=${manga.id}`"
+            class="w-full min-h-[46px] py-2.5 px-4 rounded-xl bg-amber-400 active:bg-amber-300 text-zinc-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
+          >
+            <BookOpen class="w-4 h-4" />
+            <span>Начать читать (Гл. {{ firstChapter.chapter }})</span>
+          </NuxtLink>
+
+          <div class="flex gap-2">
+            <button
+              type="button"
+              class="flex-1 min-h-[42px] py-2 px-3.5 rounded-xl font-bold text-xs flex items-center justify-between border bg-zinc-900 active:bg-zinc-800 text-zinc-100 border-zinc-800 active:scale-[0.98] transition-all"
+              @click="isBookmarkMenuOpen = true"
+            >
+              <div class="flex items-center gap-2 truncate">
+                <Bookmark :class="['w-4 h-4 shrink-0', bookmark ? 'fill-amber-400 text-amber-400' : 'text-zinc-400']" />
+                <span class="truncate">{{ bookmark ? BOOKMARK_LABELS[bookmark.status] : 'В закладки' }}</span>
+              </div>
+              <ChevronDown class="w-3.5 h-3.5 text-zinc-500 shrink-0 ml-1" />
+            </button>
+
+            <NuxtLink
+              v-if="lastRead && firstChapter"
+              :to="`/read/${firstChapter.id}?dir=${manga.id}`"
+              class="min-h-[42px] py-2 px-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 border bg-zinc-900 active:bg-zinc-800 text-zinc-300 border-zinc-800 active:scale-[0.98] transition-all shrink-0"
+            >
+              С начала
+            </NuxtLink>
+          </div>
+        </div>
+
+        <!-- DESKTOP POSTER COLUMN (>= sm) -->
+        <div class="hidden sm:flex w-[240px] md:w-[280px] xl:w-[320px] flex-shrink-0 flex-col items-center space-y-4">
           <div class="relative aspect-[2/3] w-full rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl shadow-black/80 border border-zinc-800/80 bg-zinc-950 group">
             <AsyncImage
               :src="manga.coverUrlOriginal || manga.coverUrl"
@@ -227,12 +327,12 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- Bookmark Selector -->
-          <div class="w-full relative">
+          <!-- Desktop Bookmark Button -->
+          <div class="w-full">
             <button
               type="button"
               class="w-full py-3 sm:py-3.5 px-4 sm:px-5 rounded-2xl font-bold text-xs sm:text-base flex items-center justify-between border transition-all bg-zinc-900/80 hover:bg-zinc-800 text-zinc-100 border-zinc-800 shadow-lg"
-              @click="isBookmarkMenuOpen = !isBookmarkMenuOpen"
+              @click="isBookmarkMenuOpen = true"
             >
               <div class="flex items-center gap-2 sm:gap-2.5">
                 <Bookmark :class="['w-4 h-4 sm:w-5 sm:h-5', bookmark ? 'fill-amber-400 text-amber-400' : 'text-zinc-400']" />
@@ -240,38 +340,14 @@ onMounted(() => {
               </div>
               <ChevronDown class="w-4 h-4 text-zinc-400 shrink-0" />
             </button>
-
-            <!-- Dropdown Menu -->
-            <div
-              v-if="isBookmarkMenuOpen"
-              class="absolute left-0 right-0 top-full mt-2 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl py-2 z-30 divide-y divide-zinc-900"
-            >
-              <button
-                v-for="(label, key) in BOOKMARK_LABELS"
-                :key="key"
-                type="button"
-                class="w-full px-5 py-3 text-left text-xs sm:text-sm font-semibold text-zinc-200 hover:bg-zinc-900 flex items-center gap-3"
-                @click="setBookmark(key as BookmarkStatus)"
-              >
-                <span class="w-2.5 h-2.5 rounded-full bg-zinc-400"></span>
-                <span>{{ label }}</span>
-              </button>
-              <button
-                v-if="bookmark"
-                type="button"
-                class="w-full px-5 py-3 text-left text-xs sm:text-sm font-bold text-rose-400 hover:bg-rose-950/20"
-                @click="removeBookmark"
-              >
-                Удалить из закладок
-              </button>
-            </div>
           </div>
         </div>
 
         <!-- Right: Metadata & Actions -->
         <div class="w-full flex-1 min-w-0 space-y-4 sm:space-y-6">
-          <div class="space-y-1 sm:space-y-2 text-center lg:text-left">
-            <h1 class="text-2xl sm:text-4xl lg:text-6xl font-black text-white tracking-tight leading-tight">
+          <!-- Desktop Title (>= sm) -->
+          <div class="hidden sm:block space-y-1 sm:space-y-2 text-left">
+            <h1 class="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-tight">
               {{ manga.title }}
             </h1>
             <p v-if="manga.altTitle" class="text-sm sm:text-xl text-zinc-400 font-medium">
@@ -279,8 +355,8 @@ onMounted(() => {
             </p>
           </div>
 
-          <!-- Badges Row -->
-          <div class="flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-2.5">
+          <!-- Badges Row (Desktop and Tablet) -->
+          <div class="hidden sm:flex flex-wrap items-center gap-2 sm:gap-2.5">
             <span :class="['inline-flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl text-xs sm:text-sm font-bold border transition-colors', getStatusInfo(manga.status).badgeClass]">
               <span :class="['w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full', getStatusInfo(manga.status).dotClass]"></span>
               {{ getStatusInfo(manga.status).text }}
@@ -324,7 +400,7 @@ onMounted(() => {
           </div>
 
           <!-- Genres & Categories Tags -->
-          <div v-if="manga.genres?.length || manga.categories?.length" class="flex flex-wrap items-center justify-center lg:justify-start gap-1.5 sm:gap-2 pt-1">
+          <div v-if="manga.genres?.length || manga.categories?.length" class="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1">
             <NuxtLink
               v-for="genre in (manga.genres || [])"
               :key="genre"
@@ -345,16 +421,28 @@ onMounted(() => {
             </NuxtLink>
           </div>
 
-          <!-- Description Card -->
-          <div class="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-4 sm:p-6 text-sm sm:text-lg text-zinc-300 leading-relaxed">
-            <div v-if="manga.description" class="prose prose-invert max-w-none text-zinc-300 text-sm sm:text-base leading-relaxed" v-html="manga.description"></div>
-            <p v-else class="text-zinc-500 italic text-sm">
+          <!-- Description Card with Mobile Collapsible -->
+          <div class="bg-zinc-900/40 border border-zinc-800/80 rounded-2xl p-3.5 sm:p-6 text-xs sm:text-base text-zinc-300 leading-relaxed">
+            <div
+              v-if="manga.description"
+              :class="['prose prose-invert max-w-none text-zinc-300 text-xs sm:text-base leading-relaxed', !isDescriptionExpanded && 'line-clamp-3 sm:line-clamp-none']"
+              v-html="manga.description"
+            ></div>
+            <p v-else class="text-zinc-500 italic text-xs sm:text-sm">
               Описание пока отсутствует.
             </p>
+            <button
+              v-if="manga.description && manga.description.length > 150"
+              type="button"
+              class="sm:hidden mt-2 text-xs font-bold text-amber-400 hover:underline flex items-center gap-1 active:opacity-70 py-1"
+              @click="isDescriptionExpanded = !isDescriptionExpanded"
+            >
+              {{ isDescriptionExpanded ? 'Свернуть описание' : 'Читать полностью...' }}
+            </button>
           </div>
 
-          <!-- Action Buttons (CTA) -->
-          <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-4 pt-1">
+          <!-- Action Buttons (CTA) for Desktop (>= sm) -->
+          <div class="hidden sm:flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-4 pt-1">
             <NuxtLink
               v-if="lastRead"
               :to="`/read/${lastRead.chapterId}?dir=${manga.id}`"
@@ -421,7 +509,7 @@ onMounted(() => {
             v-for="ch in filteredChapters"
             :key="ch.id"
             :to="`/read/${ch.id}?dir=${manga.id}`"
-            class="group flex items-center justify-between py-3 sm:py-4 px-2 sm:px-3 rounded-xl hover:bg-zinc-900/60 active:bg-zinc-900 transition-colors"
+            class="group flex items-center justify-between py-3 sm:py-4 px-2 sm:px-3 rounded-xl hover:bg-zinc-900/60 active:bg-zinc-900 active:scale-[0.99] transition-all min-h-[52px]"
           >
             <div class="flex items-center gap-3 sm:gap-4 min-w-0">
               <div
@@ -499,5 +587,74 @@ onMounted(() => {
         <span class="hidden sm:inline">Наверх</span>
       </button>
     </transition>
+
+    <!-- Bookmark Bottom Sheet Modal -->
+    <Teleport to="body">
+      <div
+        v-if="isBookmarkMenuOpen"
+        class="fixed inset-0 z-50 flex flex-col justify-end select-none"
+      >
+        <!-- Backdrop -->
+        <div
+          class="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity"
+          @click="isBookmarkMenuOpen = false"
+        ></div>
+
+        <!-- Sheet Panel -->
+        <div class="relative bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-5 max-w-lg w-full mx-auto pb-safe shadow-2xl space-y-4 animate-in slide-in-from-bottom duration-200">
+          <!-- Drag Handle Indicator -->
+          <div class="w-10 h-1 bg-zinc-700 rounded-full mx-auto -mt-2 mb-2"></div>
+
+          <!-- Header -->
+          <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
+            <div class="flex items-center gap-2">
+              <Bookmark class="w-5 h-5 text-amber-400" />
+              <h3 class="text-base sm:text-lg font-black text-white">Добавить в закладки</h3>
+            </div>
+            <button
+              type="button"
+              class="w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-900 text-zinc-400 hover:text-white active:bg-zinc-800"
+              @click="isBookmarkMenuOpen = false"
+            >
+              <X class="w-4 h-4" />
+            </button>
+          </div>
+
+          <!-- Options List -->
+          <div class="space-y-1.5 pt-1">
+            <button
+              v-for="(label, key) in BOOKMARK_LABELS"
+              :key="key"
+              type="button"
+              :class="[
+                'w-full min-h-[48px] px-4 py-3 rounded-xl text-left text-xs sm:text-sm font-bold flex items-center justify-between transition-colors border active:scale-[0.99]',
+                bookmark?.status === key
+                  ? 'bg-amber-400/10 text-amber-300 border-amber-400/30'
+                  : 'bg-zinc-900/60 text-zinc-200 border-zinc-800/60 hover:bg-zinc-900 active:bg-zinc-800'
+              ]"
+              @click="setBookmark(key as BookmarkStatus)"
+            >
+              <span class="flex items-center gap-2.5">
+                <Bookmark :class="['w-4 h-4', bookmark?.status === key ? 'fill-amber-400 text-amber-400' : 'text-zinc-500']" />
+                <span>{{ label }}</span>
+              </span>
+              <Check v-if="bookmark?.status === key" class="w-4 h-4 text-amber-400" />
+            </button>
+          </div>
+
+          <!-- Remove Bookmark Button -->
+          <div v-if="bookmark" class="pt-2 border-t border-zinc-800/80">
+            <button
+              type="button"
+              class="w-full min-h-[46px] px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-rose-400 hover:bg-rose-950/20 active:bg-rose-950/30 border border-rose-950/40 flex items-center justify-center gap-2 transition-colors active:scale-[0.99]"
+              @click="removeBookmark"
+            >
+              <Trash2 class="w-4 h-4" />
+              <span>Удалить из закладок</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

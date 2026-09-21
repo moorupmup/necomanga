@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Bookmark,
@@ -14,6 +14,7 @@ import {
   type BookmarkStatus
 } from '~/stores/bookmarks'
 import { useHistoryStore } from '~/stores/history'
+import { registerBackHandler } from '~/composables/useBackButton'
 import AsyncImage from '~/components/AsyncImage.vue'
 
 const route = useRoute()
@@ -22,6 +23,7 @@ const historyStore = useHistoryStore()
 
 const activeTab = ref<'bookmarks' | 'history'>((route.query.tab as any) === 'history' ? 'history' : 'bookmarks')
 const activeStatusFilter = ref<string>('all')
+const showClearHistoryConfirm = ref(false)
 
 const allBookmarks = computed(() => Object.values(bookmarksStore.bookmarks))
 
@@ -40,6 +42,29 @@ const formatTimeAgo = (timestamp: number) => {
   if (minutes < 60) return `${minutes} мин. назад`
   if (hours < 24) return `${hours} ч. назад`
   return `${days} дн. назад`
+}
+
+let unregisterBack: (() => void) | null = null
+
+onMounted(() => {
+  unregisterBack = registerBackHandler(() => {
+    if (showClearHistoryConfirm.value) {
+      showClearHistoryConfirm.value = false
+      return true
+    }
+    return false
+  })
+})
+
+onUnmounted(() => {
+  if (unregisterBack) {
+    unregisterBack()
+  }
+})
+
+const confirmClearHistory = () => {
+  historyStore.clearHistory()
+  showClearHistoryConfirm.value = false
 }
 </script>
 
@@ -81,8 +106,8 @@ const formatTimeAgo = (timestamp: number) => {
       <button
         v-if="activeTab === 'history' && historyStore.history.length > 0"
         type="button"
-        class="text-xs sm:text-sm text-zinc-400 hover:text-rose-400 flex items-center gap-1.5 font-semibold transition-colors self-end sm:self-auto"
-        @click="historyStore.clearHistory"
+        class="text-xs sm:text-sm text-zinc-400 hover:text-rose-400 active:text-rose-400 flex items-center gap-1.5 font-semibold transition-colors self-end sm:self-auto py-1 px-2 rounded-lg active:bg-zinc-900"
+        @click="showClearHistoryConfirm = true"
       >
         <Trash2 class="w-3.5 h-3.5" />
         <span>Очистить историю</span>
@@ -149,16 +174,16 @@ const formatTimeAgo = (timestamp: number) => {
             </NuxtLink>
 
             <div class="flex items-center justify-between pt-1.5 sm:pt-2.5 border-t border-zinc-800/60">
-              <NuxtLink :to="`/manga/${b.mangaId}`" class="text-xs sm:text-sm text-zinc-400 hover:text-white font-semibold">
+              <NuxtLink :to="`/manga/${b.mangaId}`" class="text-xs sm:text-sm text-zinc-300 hover:text-white font-bold py-1">
                 Открыть
               </NuxtLink>
               <button
                 type="button"
-                class="text-zinc-500 hover:text-rose-400 p-1 transition-colors"
+                class="min-w-[40px] min-h-[40px] flex items-center justify-center -mr-2 -mb-1 rounded-xl text-zinc-400 hover:text-rose-400 active:text-rose-400 active:bg-rose-950/30 transition-colors"
                 title="Удалить из закладок"
                 @click="bookmarksStore.removeBookmark(b.mangaId)"
               >
-                <Trash2 class="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Trash2 class="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -206,10 +231,10 @@ const formatTimeAgo = (timestamp: number) => {
           <div class="flex items-center justify-end sm:self-center pt-1 sm:pt-0">
             <NuxtLink
               :to="`/read/${item.chapterId}`"
-              class="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-white hover:bg-zinc-200 text-zinc-950 font-bold text-xs sm:text-base flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98]"
+              class="w-full sm:w-auto min-h-[44px] px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-amber-400 active:bg-amber-300 text-zinc-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 transition-all active:scale-[0.98]"
             >
               <BookOpen class="w-4 h-4" />
-              <span>Продолжить чтение</span>
+              <span>Продолжить</span>
             </NuxtLink>
           </div>
         </div>
@@ -223,5 +248,49 @@ const formatTimeAgo = (timestamp: number) => {
         </NuxtLink>
       </div>
     </div>
+
+    <!-- Clear History Confirmation Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showClearHistoryConfirm"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 select-none"
+      >
+        <!-- Backdrop -->
+        <div
+          class="fixed inset-0 bg-black/80 backdrop-blur-xs transition-opacity"
+          @click="showClearHistoryConfirm = false"
+        ></div>
+
+        <!-- Dialog -->
+        <div class="relative w-full max-w-sm bg-zinc-950 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-2xl p-5 sm:p-6 shadow-2xl space-y-4 pb-safe animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center shrink-0 border border-rose-500/20">
+              <Trash2 class="w-5 h-5" />
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-white">Очистить историю?</h3>
+              <p class="text-xs text-zinc-400 mt-0.5">Вся история прочитанных глав будет удалена.</p>
+            </div>
+          </div>
+
+          <div class="flex gap-2.5 pt-2">
+            <button
+              type="button"
+              class="flex-1 min-h-[44px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-800 active:scale-95 transition-all"
+              @click="showClearHistoryConfirm = false"
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              class="flex-1 min-h-[44px] py-2.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/20 active:scale-95 transition-all"
+              @click="confirmClearHistory"
+            >
+              Очистить
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

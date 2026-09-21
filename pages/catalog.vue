@@ -366,6 +366,9 @@ onUnmounted(() => {
 
         <!-- Sheet Panel -->
         <div class="relative bg-zinc-950 border-t border-zinc-800 rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto pb-safe shadow-2xl space-y-5 animate-in slide-in-from-bottom duration-200">
+          <!-- Drag Handle Indicator -->
+          <div class="w-10 h-1 bg-zinc-700 rounded-full mx-auto -mt-2 mb-2"></div>
+
           <!-- Sheet Header -->
           <div class="flex items-center justify-between border-b border-zinc-800 pb-3">
             <div class="flex items-center gap-2">
@@ -376,17 +379,17 @@ onUnmounted(() => {
               <button
                 v-if="activeFilterCount > 0"
                 type="button"
-                class="text-xs font-bold text-zinc-400 hover:text-white px-2 py-1"
+                class="text-xs font-bold text-zinc-400 hover:text-white px-2.5 py-1.5 rounded-lg active:bg-zinc-900"
                 @click="resetFilters"
               >
                 Сбросить
               </button>
               <button
                 type="button"
-                class="p-2 rounded-xl bg-zinc-900 text-zinc-400 hover:text-white"
+                class="w-9 h-9 flex items-center justify-center rounded-xl bg-zinc-900 text-zinc-400 hover:text-white active:bg-zinc-800"
                 @click="isFilterSheetOpen = false"
               >
-                <X class="w-5 h-5" />
+                <X class="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -400,7 +403,7 @@ onUnmounted(() => {
                 :key="sort.id"
                 type="button"
                 :class="[
-                  'w-full px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between transition-colors border',
+                  'w-full min-h-[44px] px-4 py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-between transition-colors border active:scale-[0.99]',
                   selectedSort === sort.id
                     ? 'bg-zinc-100 text-zinc-950 border-white'
                     : 'bg-zinc-900 text-zinc-300 border-zinc-800'
@@ -422,7 +425,7 @@ onUnmounted(() => {
                 :key="st.id"
                 type="button"
                 :class="[
-                  'py-2 px-2 rounded-xl text-xs font-bold text-center transition-colors border',
+                  'min-h-[42px] py-2.5 px-2 rounded-xl text-xs font-bold text-center transition-colors border active:scale-[0.98]',
                   selectedStatus === st.id
                     ? 'bg-zinc-100 text-zinc-950 border-white'
                     : 'bg-zinc-900 text-zinc-300 border-zinc-800'
@@ -443,7 +446,7 @@ onUnmounted(() => {
                 :key="g.id"
                 type="button"
                 :class="[
-                  'px-3 py-1.5 text-xs rounded-lg font-semibold transition-colors border',
+                  'min-h-[38px] px-3.5 py-2 text-xs rounded-xl font-semibold flex items-center justify-center transition-colors border active:scale-95',
                   selectedGenres.includes(g.id)
                     ? 'bg-zinc-100 text-zinc-950 border-white font-bold'
                     : 'bg-zinc-900 text-zinc-400 border-zinc-800'
@@ -455,11 +458,11 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Apply Button -->
-          <div class="pt-2 sticky bottom-0 bg-zinc-950 pb-2">
+          <!-- Apply Button (Sticky bottom in sheet) -->
+          <div class="pt-3 sticky bottom-0 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pb-1 -mx-5 px-5">
             <button
               type="button"
-              class="w-full py-3.5 rounded-xl bg-amber-400 text-zinc-950 font-black text-sm shadow-lg active:scale-[0.98] transition-transform"
+              class="w-full min-h-[48px] py-3.5 rounded-2xl bg-amber-400 active:bg-amber-300 text-zinc-950 font-black text-sm shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all"
               @click="isFilterSheetOpen = false"
             >
               Применить ({{ totalCount.toLocaleString('ru-RU') }} тайтлов)

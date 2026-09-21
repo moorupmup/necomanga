@@ -25,13 +25,14 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
 
 <template>
   <nav
-    class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-zinc-950 border-t border-zinc-800 pb-safe select-none transition-transform duration-300"
+    v-if="!route.path.startsWith('/read/')"
+    class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-zinc-950/95 backdrop-blur-md border-t border-zinc-800/80 pb-safe select-none transition-transform duration-300"
   >
     <div class="grid grid-cols-4 h-16 items-center px-1">
       <!-- 1. Home -->
       <NuxtLink
         to="/"
-        class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-colors relative"
+        class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
         :class="isHomeActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
       >
         <Flame :class="['w-5 h-5 transition-transform', isHomeActive ? 'scale-110 text-amber-400' : '']" />
@@ -45,7 +46,7 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
       <!-- 2. Catalog -->
       <NuxtLink
         to="/catalog"
-        class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-colors relative"
+        class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
         :class="isCatalogActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
       >
         <Compass :class="['w-5 h-5 transition-transform', isCatalogActive ? 'scale-110 text-amber-400' : '']" />
@@ -59,7 +60,7 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
       <!-- 3. Bookmarks -->
       <NuxtLink
         to="/bookmarks"
-        class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-colors relative"
+        class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
         :class="isBookmarksActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
       >
         <div class="relative">
@@ -81,7 +82,7 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
       <!-- 4. History -->
       <NuxtLink
         to="/bookmarks?tab=history"
-        class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-colors relative"
+        class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
         :class="isHistoryActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
       >
         <div class="relative">

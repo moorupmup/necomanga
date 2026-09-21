@@ -99,14 +99,14 @@ if (typeof window !== 'undefined') {
       <button
         v-if="query"
         type="button"
-        class="absolute right-3.5 p-1 rounded-lg text-zinc-400 hover:text-white transition-colors"
+        class="absolute right-2.5 w-9 h-9 flex items-center justify-center rounded-xl text-zinc-400 hover:text-white active:bg-zinc-800 transition-colors"
         @click="clearSearch"
       >
         <X class="w-4 h-4" />
       </button>
       <Loader2
         v-if="isLoading"
-        class="absolute right-10 w-4 h-4 text-zinc-400 animate-spin"
+        class="absolute right-12 w-4 h-4 text-zinc-400 animate-spin"
       />
     </div>
 
@@ -119,7 +119,7 @@ if (typeof window !== 'undefined') {
         <div
           v-for="manga in results"
           :key="manga.id"
-          class="flex items-center gap-4 p-2.5 rounded-xl hover:bg-zinc-900 cursor-pointer transition-colors"
+          class="flex items-center gap-4 p-2.5 rounded-xl hover:bg-zinc-900 active:bg-zinc-900 active:scale-[0.99] cursor-pointer transition-all"
           @click="onSelectManga(manga.id)"
         >
           <img
