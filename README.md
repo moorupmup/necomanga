@@ -8,7 +8,7 @@
 
 Готовый установочный файл приложения автоматически собирается и публикуется в репозитории:
 
-👉 **[Скачать последнюю версию NecoManga.apk](https://github.com/pumpuroom/necomanga/releases/latest)**
+👉 **[Скачать последнюю версию NecoManga.apk](https://github.com/moorupmup/necomanga/releases/latest)**
 
 ### Установка на Android:
 1. Перейдите по ссылке выше в раздел **Releases** и скачайте файл **`NecoManga.apk`** в блоке **Assets**.

@@ -60,7 +60,7 @@ export const useAppUpdate = () => {
     error.value = null
 
     try {
-      const res = await fetch('https://api.github.com/repos/pumpuroom/necomanga/releases/latest', {
+      const res = await fetch('https://api.github.com/repos/moorupmup/necomanga/releases/latest', {
         headers: { 'User-Agent': 'NecoMangaApp' }
       })
 
