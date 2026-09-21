@@ -48,9 +48,14 @@ watch(query, (val) => {
   }, 300)
 })
 
+const emit = defineEmits<{
+  (e: 'selected'): void
+}>()
+
 const submitSearch = () => {
   if (query.value.trim()) {
     isOpen.value = false
+    emit('selected')
     router.push({ path: '/catalog', query: { q: query.value.trim() } })
   }
 }
@@ -64,6 +69,7 @@ const clearSearch = () => {
 const onSelectManga = (id: string) => {
   isOpen.value = false
   query.value = ''
+  emit('selected')
   router.push(`/manga/${id}`)
 }
 

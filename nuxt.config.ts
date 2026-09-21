@@ -19,9 +19,11 @@ export default defineNuxtConfig({
       title: 'N.ECOMANGA — Чтение манги, манхвы и маньхуа онлайн',
       meta: [
         { charset: 'utf-8' },
-        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, user-scalable=no' },
         { name: 'description', content: 'Огромный каталог популярной манги, корейской манхвы и китайской маньхуа онлайн.' },
-        { name: 'theme-color', content: '#0f172a' }
+        { name: 'theme-color', content: '#09090b' },
+        { name: 'apple-mobile-web-app-capable', content: 'yes' },
+        { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' }
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }

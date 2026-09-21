@@ -3,8 +3,7 @@ import { ref, computed } from 'vue'
 import {
   Bookmark,
   History,
-  Compass,
-  Menu,
+  Search,
   X
 } from 'lucide-vue-next'
 import { useBookmarksStore } from '~/stores/bookmarks'
@@ -14,25 +13,29 @@ import SearchBar from '~/components/SearchBar.vue'
 const bookmarksStore = useBookmarksStore()
 const historyStore = useHistoryStore()
 
-const isMobileMenuOpen = ref(false)
+const isMobileSearchOpen = ref(false)
 
 const bookmarksCount = computed(() => Object.keys(bookmarksStore.bookmarks).length)
 const historyCount = computed(() => historyStore.history.length)
+
+const toggleMobileSearch = () => {
+  isMobileSearchOpen.value = !isMobileSearchOpen.value
+}
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl">
-    <div class="w-full px-4 sm:px-8 xl:px-12 h-20 py-3.5 flex items-center justify-between gap-6">
+  <header class="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-xl pt-safe select-none transition-all">
+    <div class="w-full px-3.5 sm:px-8 xl:px-12 h-14 sm:h-20 flex items-center justify-between gap-3 sm:gap-6">
       
       <!-- Brand Logo -->
-      <div class="flex items-center gap-8">
+      <div class="flex items-center gap-4 sm:gap-8">
         <NuxtLink to="/" class="flex items-center group transition-colors py-1 select-none">
-          <span class="tracking-wider font-black text-2xl sm:text-3xl text-white group-hover:text-zinc-200 transition-colors">
+          <span class="tracking-wider font-black text-xl sm:text-3xl text-white group-hover:text-zinc-200 transition-colors">
             N.ECO<span class="text-amber-400 font-light">MANGA</span>
           </span>
         </NuxtLink>
 
-        <!-- Desktop Navigation Links (Large & bold) -->
+        <!-- Desktop Navigation Links -->
         <nav class="hidden md:flex items-center gap-2 text-base font-semibold text-zinc-300">
           <NuxtLink
             to="/catalog"
@@ -65,17 +68,28 @@ const historyCount = computed(() => historyStore.history.length)
         </nav>
       </div>
 
-      <!-- Search Bar Center -->
+      <!-- Search Bar Center (Desktop) -->
       <div class="hidden sm:block flex-1 max-w-xl mx-4">
         <SearchBar />
       </div>
 
       <!-- Right Action Controls -->
-      <div class="flex items-center gap-3">
-        <!-- Bookmarks Link -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Mobile Search Button -->
+        <button
+          type="button"
+          class="sm:hidden p-2.5 rounded-xl bg-zinc-900 text-zinc-300 hover:text-white border border-zinc-800 transition-colors"
+          :title="isMobileSearchOpen ? 'Закрыть поиск' : 'Открыть поиск'"
+          @click="toggleMobileSearch"
+        >
+          <X v-if="isMobileSearchOpen" class="w-5 h-5 text-amber-400" />
+          <Search v-else class="w-5 h-5" />
+        </button>
+
+        <!-- Bookmarks Link (Desktop only, mobile has bottom bar) -->
         <NuxtLink
           to="/bookmarks"
-          class="relative p-2.5 px-3.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-900 text-zinc-200 hover:text-white border border-zinc-800/80 hover:border-zinc-700 transition-colors flex items-center gap-2.5 text-sm font-bold"
+          class="hidden md:flex relative p-2.5 px-3.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-900 text-zinc-200 hover:text-white border border-zinc-800/80 hover:border-zinc-700 transition-colors items-center gap-2.5 text-sm font-bold"
           title="Мои закладки"
         >
           <Bookmark class="w-4 h-4 text-zinc-400" />
@@ -88,10 +102,10 @@ const historyCount = computed(() => historyStore.history.length)
           </span>
         </NuxtLink>
 
-        <!-- History Link -->
+        <!-- History Link (Desktop only) -->
         <NuxtLink
           to="/bookmarks?tab=history"
-          class="relative p-2.5 px-3.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-900 text-zinc-200 hover:text-white border border-zinc-800/80 hover:border-zinc-700 transition-colors flex items-center gap-2.5 text-sm font-bold"
+          class="hidden md:flex relative p-2.5 px-3.5 rounded-xl bg-zinc-900/60 hover:bg-zinc-900 text-zinc-200 hover:text-white border border-zinc-800/80 hover:border-zinc-700 transition-colors items-center gap-2.5 text-sm font-bold"
           title="История «Вы читали»"
         >
           <History class="w-4 h-4 text-zinc-400" />
@@ -103,74 +117,15 @@ const historyCount = computed(() => historyStore.history.length)
             {{ historyCount }}
           </span>
         </NuxtLink>
-
-        <!-- Mobile Menu Toggle -->
-        <button
-          type="button"
-          class="md:hidden p-2.5 rounded-xl bg-zinc-900 text-zinc-300 hover:text-white border border-zinc-800"
-          @click="isMobileMenuOpen = !isMobileMenuOpen"
-        >
-          <Menu v-if="!isMobileMenuOpen" class="w-5 h-5" />
-          <X v-else class="w-5 h-5" />
-        </button>
       </div>
     </div>
 
-    <!-- Mobile Drawer -->
+    <!-- Mobile Search Expandable Drawer -->
     <div
-      v-if="isMobileMenuOpen"
-      class="md:hidden border-t border-zinc-800 bg-zinc-950 px-4 py-4 space-y-3"
+      v-if="isMobileSearchOpen"
+      class="sm:hidden border-t border-zinc-800/80 bg-zinc-950 px-3.5 py-3 shadow-xl animate-in fade-in slide-in-from-top-2 duration-200"
     >
-      <div class="sm:hidden pb-1">
-        <SearchBar />
-      </div>
-
-      <nav class="flex flex-col space-y-1.5 text-base font-semibold">
-        <NuxtLink
-          to="/catalog"
-          class="px-4 py-3 rounded-xl text-zinc-200 hover:bg-zinc-900"
-          @click="isMobileMenuOpen = false"
-        >
-          Каталог
-        </NuxtLink>
-        <NuxtLink
-          to="/catalog?type=2"
-          class="px-4 py-3 rounded-xl text-zinc-200 hover:bg-zinc-900"
-          @click="isMobileMenuOpen = false"
-        >
-          Корейская манхва
-        </NuxtLink>
-        <NuxtLink
-          to="/catalog?type=3"
-          class="px-4 py-3 rounded-xl text-zinc-200 hover:bg-zinc-900"
-          @click="isMobileMenuOpen = false"
-        >
-          Китайская маньхуа
-        </NuxtLink>
-        <NuxtLink
-          to="/catalog?type=1"
-          class="px-4 py-3 rounded-xl text-zinc-200 hover:bg-zinc-900"
-          @click="isMobileMenuOpen = false"
-        >
-          Японская манга
-        </NuxtLink>
-        <NuxtLink
-          to="/bookmarks"
-          class="px-4 py-3 rounded-xl text-zinc-200 hover:bg-zinc-900 flex items-center justify-between"
-          @click="isMobileMenuOpen = false"
-        >
-          <span>Закладки</span>
-          <span v-if="bookmarksCount" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-200">{{ bookmarksCount }}</span>
-        </NuxtLink>
-        <NuxtLink
-          to="/bookmarks?tab=history"
-          class="px-4 py-3 rounded-xl text-zinc-200 hover:bg-zinc-900 flex items-center justify-between"
-          @click="isMobileMenuOpen = false"
-        >
-          <span>История «Вы читали»</span>
-          <span v-if="historyCount" class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-zinc-800 text-zinc-200">{{ historyCount }}</span>
-        </NuxtLink>
-      </nav>
+      <SearchBar @selected="isMobileSearchOpen = false" />
     </div>
   </header>
 </template>
