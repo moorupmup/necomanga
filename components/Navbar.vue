@@ -4,14 +4,18 @@ import {
   Bookmark,
   History,
   Search,
-  X
+  X,
+  ArrowUpCircle,
+  RefreshCw
 } from 'lucide-vue-next'
 import { useBookmarksStore } from '~/stores/bookmarks'
 import { useHistoryStore } from '~/stores/history'
+import { useAppUpdate } from '~/composables/useAppUpdate'
 import SearchBar from '~/components/SearchBar.vue'
 
 const bookmarksStore = useBookmarksStore()
 const historyStore = useHistoryStore()
+const { isChecking, hasUpdate, manualCheckFeedback, checkForUpdates } = useAppUpdate()
 
 const isMobileSearchOpen = ref(false)
 
@@ -86,6 +90,26 @@ const toggleMobileSearch = () => {
           <Search v-else class="w-5 h-5" />
         </button>
 
+        <!-- Update Checker Button -->
+        <button
+          type="button"
+          :disabled="isChecking"
+          class="relative p-2.5 rounded-xl bg-zinc-900 text-zinc-300 hover:text-white border border-zinc-800 transition-colors flex items-center justify-center shrink-0 disabled:opacity-60"
+          :title="hasUpdate ? 'Доступно обновление приложения!' : 'Проверить обновления'"
+          @click="checkForUpdates(false)"
+        >
+          <RefreshCw v-if="isChecking" class="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-amber-400" />
+          <ArrowUpCircle
+            v-else
+            :class="[
+              'w-4 h-4 sm:w-5 sm:h-5 transition-colors',
+              hasUpdate ? 'text-amber-400 animate-pulse' : 'text-zinc-400 hover:text-zinc-200'
+            ]"
+          />
+          <span v-if="hasUpdate" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+          <span v-if="hasUpdate" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+        </button>
+
         <!-- Bookmarks Link (Desktop only, mobile has bottom bar) -->
         <NuxtLink
           to="/bookmarks"
@@ -127,5 +151,15 @@ const toggleMobileSearch = () => {
     >
       <SearchBar @selected="isMobileSearchOpen = false" />
     </div>
+
+    <!-- Toast for manual update check feedback -->
+    <Teleport to="body">
+      <div
+        v-if="manualCheckFeedback"
+        class="fixed bottom-20 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-zinc-900/95 border border-zinc-700 text-xs font-bold text-zinc-100 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 pointer-events-none"
+      >
+        {{ manualCheckFeedback }}
+      </div>
+    </Teleport>
   </header>
 </template>

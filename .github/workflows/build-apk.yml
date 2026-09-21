@@ -36,6 +36,10 @@ jobs:
 
       - name: Generate static web app
         run: npm run generate
+        env:
+          VITE_APP_VERSION: "1.1.0"
+          VITE_APP_COMMIT: ${{ github.sha }}
+          VITE_APP_BUILD_TIME: ${{ github.event.head_commit.timestamp }}
 
       - name: Sync Capacitor Android
         run: npx cap sync android
@@ -56,20 +60,24 @@ jobs:
         with:
           tag_name: latest
           target_commitish: ${{ github.sha }}
-          name: "NecoManga Latest APK"
+          name: "NecoManga v1.1.0 (сборка #${{ github.run_number }})"
           body: |
-            ## 📱 NecoManga Android APK
+            ## 📱 NecoManga Android APK v1.1.0
 
             Свежая автоматическая сборка читалки NecoManga для Android.
 
             - **Файл:** `NecoManga.apk`
-            - **Коммит:** ${{ github.sha }}
+            - **Сборка:** #${{ github.run_number }}
+            - **Коммит:** `${{ github.sha }}`
 
-            ### 🚀 Установка:
+            ### 🚀 Что нового:
+            - Встроенное автообновление приложения прямо из интерфейса (в 1 клик)
+            - Нативная загрузка глав манхвы и манги через фоновый перехватчик
+            - Адаптированная мобильная верстка и нижняя панель навигации
+
+            ### 📲 Установка:
             1. Скачайте файл **`NecoManga.apk`** ниже в блоке **Assets**.
-            2. Откройте скачанный файл на вашем Android смартфоне или планшете.
-            3. Если система предупредит об установке из неизвестных источников — разрешите установку для браузера/проводника.
-            4. Приятного чтения манги без блокировок! 🎉
+            2. Откройте файл на Android-устройстве и нажмите «Установить» (или используйте обновление внутри приложения).
           draft: false
           prerelease: false
           files: NecoManga.apk

@@ -14,6 +14,14 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
+  runtimeConfig: {
+    public: {
+      appVersion: process.env.VITE_APP_VERSION || '1.1.0',
+      buildCommit: process.env.VITE_APP_COMMIT || '',
+      buildTime: process.env.VITE_APP_BUILD_TIME || new Date().toISOString()
+    }
+  },
+
   app: {
     head: {
       title: 'N.ECOMANGA — Чтение манги, манхвы и маньхуа онлайн',
