@@ -1,0 +1,14 @@
+{
+  "appId": "com.necomanga.app",
+  "appName": "NecoManga",
+  "webDir": ".output/public",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

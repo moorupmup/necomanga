@@ -71,6 +71,19 @@ export interface ReMangaStatus {
   name: string
 }
 
+export const isNativePlatform = (): boolean => {
+  if (typeof window === 'undefined') return false
+  const proto = window.location.protocol
+  const host = window.location.hostname
+  const port = window.location.port
+  return (
+    proto === 'capacitor:' ||
+    proto === 'ionic:' ||
+    ((host === 'localhost' || host === '127.0.0.1') && !port) ||
+    Boolean((window as any).Capacitor?.isNativePlatform?.())
+  )
+}
+
 export const normalizeCoverUrl = (path?: string): string => {
   if (!path) return '/no-cover.svg'
   if (path.startsWith('http://') || path.startsWith('https://')) return path
@@ -81,17 +94,46 @@ export const normalizeCoverUrl = (path?: string): string => {
 
 export const wrapProxyImageUrl = (url: string): string => {
   if (!url) return ''
-  return `/api/remanga/img?url=${encodeURIComponent(url)}`
+  const fixed = url.replace('img.reimg.org', 'img-reserve.reimg2.org')
+  if (isNativePlatform()) {
+    return fixed
+  }
+  return `/api/remanga/img?url=${encodeURIComponent(fixed)}`
 }
 
 export const useReManga = () => {
-  const BASE_URL = '/api/remanga'
+  const resolveUrl = (endpoint: string): string => {
+    if (endpoint.startsWith('http')) return endpoint
+
+    // On standard web (Open Server), use local proxy
+    if (!isNativePlatform()) {
+      return `/api/remanga${endpoint}`
+    }
+
+    // Inside Android APK (Capacitor), route directly to ReManga
+    const [path, query] = endpoint.split('?')
+    const qs = query ? `?${query}` : ''
+    const cleanPath = path.replace(/^\/+/, '')
+
+    if (cleanPath === 'catalog') return `https://remanga.org/api/search/catalog/${qs}`
+    if (cleanPath === 'search') return `https://remanga.org/api/v2/search/${qs}`
+    if (cleanPath === 'forms') return `https://remanga.org/api/forms/titles/${qs}`
+    if (cleanPath === 'chapters') return `https://remanga.org/api/titles/chapters/${qs}`
+
+    const chapterMatch = cleanPath.match(/^chapter\/(\d+)/)
+    if (chapterMatch) return `https://remanga.org/api/titles/chapters/${chapterMatch[1]}/`
+
+    const titleMatch = cleanPath.match(/^title\/([^/]+)/)
+    if (titleMatch) return `https://remanga.org/api/titles/${encodeURIComponent(decodeURIComponent(titleMatch[1]))}/`
+
+    return `https://remanga.org/api/${cleanPath}${qs}`
+  }
 
   /**
    * Safe fetch with timeout
    */
   const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
-    const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`
+    const url = resolveUrl(endpoint)
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
@@ -102,6 +144,7 @@ export const useReManga = () => {
         signal: controller.signal,
         headers: {
           'Accept': 'application/json',
+          'Referer': 'https://remanga.org/',
           ...(options.headers || {})
         }
       })

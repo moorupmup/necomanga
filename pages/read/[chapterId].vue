@@ -13,7 +13,7 @@ import {
   Lock,
   ExternalLink
 } from 'lucide-vue-next'
-import { useReManga } from '~/composables/useReManga'
+import { useReManga, isNativePlatform } from '~/composables/useReManga'
 import { useReaderSettingsStore } from '~/stores/readerSettings'
 import { useHistoryStore } from '~/stores/history'
 import SpinnerArrow from '~/components/SpinnerArrow.vue'
@@ -37,6 +37,26 @@ const parentManga = ref<any>(null)
 const pages = ref<string[]>([])
 const prevChapter = ref<any>(null)
 const nextChapter = ref<any>(null)
+const pageBlobs = ref<Record<number, string>>({})
+
+const getPageSrc = (originalUrl: string, index: number) => {
+  return pageBlobs.value[index] || originalUrl
+}
+
+const loadNativeBlobs = (urls: string[]) => {
+  if (!isNativePlatform()) return
+  urls.forEach(async (url, idx) => {
+    try {
+      const res = await fetch(url, { headers: { Referer: 'https://remanga.org/' } })
+      if (res.ok) {
+        const blob = await res.blob()
+        pageBlobs.value[idx] = URL.createObjectURL(blob)
+      }
+    } catch (e) {
+      console.warn('Could not load native image blob', idx, e)
+    }
+  })
+}
 
 const currentPageIndex = ref(0)
 const failedImages = ref<Record<number, boolean>>({})
@@ -52,11 +72,13 @@ const loadChapterData = async () => {
   error.value = null
   failedImages.value = {}
   currentPageIndex.value = 0
+  pageBlobs.value = {}
 
   try {
     const chapterData = await getChapterPages(chapterId.value)
     chapterInfo.value = chapterData
     pages.value = chapterData.pages
+    loadNativeBlobs(chapterData.pages)
     prevChapter.value = chapterData.previous
     nextChapter.value = chapterData.next
 
@@ -391,7 +413,7 @@ onUnmounted(() => {
 
             <img
               v-else
-              :src="pageUrl"
+              :src="getPageSrc(pageUrl, index)"
               :alt="`Страница ${index + 1}`"
               class="w-full h-auto block"
               loading="lazy"
@@ -421,7 +443,7 @@ onUnmounted(() => {
 
             <img
               v-else
-              :src="pages[currentPageIndex]"
+              :src="getPageSrc(pages[currentPageIndex], currentPageIndex)"
               :alt="`Страница ${currentPageIndex + 1}`"
               class="w-full h-auto block"
               @error="onImageError(currentPageIndex)"
