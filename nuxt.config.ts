@@ -3,8 +3,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-01-01',
   devtools: { enabled: false },
 
-  // Страницы рисует клиент. API живёт в server/ и на Vercel становится
-  // serverless-функцией. `nuxt generate` по-прежнему отдаёт статику для Open Server.
+  // SPA mode for pure static hosting
   ssr: false,
 
   modules: [
@@ -31,12 +30,7 @@ export default defineNuxtConfig({
   },
 
   nitro: {
-    vercel: {
-      functions: {
-        maxDuration: 15,
-        supportsResponseStreaming: true,
-      },
-    },
+    preset: 'static',
     prerender: {
       crawlLinks: false,
       routes: ['/'],
