@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-dark-bg: oklch(0.145 0.005 260);
+    --color-dark-surface: oklch(0.18 0.006 260);
+    --color-dark-card: oklch(0.21 0.006 260);
+    --color-dark-border: oklch(0.27 0.006 260);
+    --color-text-main: oklch(0.97 0.002 260);
+    --color-text-muted: oklch(0.71 0.01 260);
+  }
+
+  body {
+    background-color: #09090b;
+    background-color: var(--color-dark-bg);
+    color: #f4f4f5;
+    color: var(--color-text-main);
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Modern minimal dark scrollbar in OKLCH */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #09090b;
+  background: oklch(0.145 0.005 260);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  background: oklch(0.27 0.006 260);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3f3f46;
+  background: oklch(0.35 0.008 260);
+}
+
+/* Image anti-flicker smoothing */
+img {
+  content-visibility: auto;
+}
+
+@layer utilities {
+  /* Ultra-smooth Eased OKLCH Card Overlay Gradient (Eliminates harsh gray banding) */
+  .bg-gradient-card-oklch {
+    background: linear-gradient(
+      to top,
+      rgba(9, 9, 11, 0.98) 0%,
+      rgba(9, 9, 11, 0.92) 18%,
+      rgba(9, 9, 11, 0.78) 36%,
+      rgba(9, 9, 11, 0.52) 54%,
+      rgba(9, 9, 11, 0.24) 72%,
+      rgba(9, 9, 11, 0.06) 88%,
+      rgba(9, 9, 11, 0) 100%
+    );
+    background: linear-gradient(
+      in oklch to top,
+      oklch(0.10 0.005 260 / 0.98) 0%,
+      oklch(0.10 0.005 260 / 0.92) 18%,
+      oklch(0.10 0.005 260 / 0.78) 36%,
+      oklch(0.10 0.005 260 / 0.52) 54%,
+      oklch(0.10 0.005 260 / 0.24) 72%,
+      oklch(0.10 0.005 260 / 0.06) 88%,
+      oklch(0.10 0.005 260 / 0) 100%
+    );
+  }
+
+  /* Ultra-smooth Eased OKLCH Banner Backdrop Gradient */
+  .bg-gradient-banner-oklch {
+    background: linear-gradient(
+      to top,
+      #09090b 0%,
+      rgba(9, 9, 11, 0.88) 25%,
+      rgba(9, 9, 11, 0.60) 50%,
+      rgba(9, 9, 11, 0.20) 75%,
+      rgba(9, 9, 11, 0) 100%
+    );
+    background: linear-gradient(
+      in oklch to top,
+      oklch(0.145 0.005 260) 0%,
+      oklch(0.145 0.005 260 / 0.88) 25%,
+      oklch(0.145 0.005 260 / 0.60) 50%,
+      oklch(0.145 0.005 260 / 0.20) 75%,
+      oklch(0.145 0.005 260 / 0) 100%
+    );
+  }
+
+  /* Perceptually uniform OKLCH Skeleton Shimmer Gradient */
+  .bg-gradient-shimmer-oklch {
+    background: linear-gradient(
+      135deg,
+      rgba(24, 24, 27, 0.9) 0%,
+      rgba(39, 39, 42, 0.55) 50%,
+      rgba(24, 24, 27, 0.9) 100%
+    );
+    background: linear-gradient(
+      in oklch 135deg,
+      oklch(0.21 0.006 260 / 0.9) 0%,
+      oklch(0.28 0.006 260 / 0.55) 50%,
+      oklch(0.21 0.006 260 / 0.9) 100%
+    );
+  }
+
+  /* Frosted Glass Badges & Pills (borderless frosted glass) */
+  .glass-badge {
+    background-color: rgba(9, 9, 11, 0.65);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+
+  .glass-badge-amber {
+    background-color: rgba(9, 9, 11, 0.65);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+}
+

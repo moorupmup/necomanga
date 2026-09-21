@@ -1,0 +1,418 @@
+export interface MangaTitle {
+  id: string // slug / dir
+  numericId?: number
+  dir: string
+  title: string
+  altTitle?: string
+  description?: string
+  coverUrl: string
+  coverUrlSmall: string
+  coverUrlOriginal: string
+  status: string
+  statusId?: number
+  translateStatus?: string
+  year?: number
+  avgRating?: string
+  totalVotes?: number
+  totalViews?: number
+  countBookmarks?: number
+  countChapters?: number
+  genres: string[]
+  categories: string[]
+  type: string // "Манхва", "Маньхуа", "Манга", etc.
+  typeId?: number
+  originalLanguage?: string
+  branches?: {
+    id: number
+    count_chapters: number
+    publishers: { id: number; name: string }[]
+    total_votes?: number
+  }[]
+  firstChapter?: {
+    id: number
+    tome: number
+    chapter: string
+  }
+}
+
+export interface ChapterItem {
+  id: string
+  chapter: string
+  tome?: string | number
+  name?: string
+  publishAt?: string
+  uploadDate?: string
+  isPaid?: boolean
+  price?: string | null
+  score?: number
+  groupName?: string
+  index?: number
+}
+
+export interface VolumeGroup {
+  volume: string
+  chapters: ChapterItem[]
+}
+
+export interface ReMangaGenre {
+  id: number
+  name: string
+  description?: string
+  dir?: string
+}
+
+export interface ReMangaType {
+  id: number
+  name: string
+}
+
+export interface ReMangaStatus {
+  id: number
+  name: string
+}
+
+export const normalizeCoverUrl = (path?: string): string => {
+  if (!path) return '/no-cover.svg'
+  if (path.startsWith('http://') || path.startsWith('https://')) return path
+  if (path.startsWith('/media/')) return `https://remanga.org${path}`
+  if (path.startsWith('media/')) return `https://remanga.org/${path}`
+  return `https://remanga.org/media/${path.replace(/^\/+/, '')}`
+}
+
+export const wrapProxyImageUrl = (url: string): string => {
+  if (!url) return ''
+  return `/api/remanga/img?url=${encodeURIComponent(url)}`
+}
+
+export const useReManga = () => {
+  const BASE_URL = '/api/remanga'
+
+  /**
+   * Safe fetch with timeout
+   */
+  const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
+    const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          ...(options.headers || {})
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`ReManga API error: ${response.status} ${response.statusText}`)
+      }
+
+      return await response.json()
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  /**
+   * Helper to format raw ReManga title object to MangaTitle
+   */
+  const formatManga = (item: any): MangaTitle => {
+    const dir = item.dir || String(item.id)
+    const title = item.main_name || item.rus_name || item.name || ''
+    const altTitle = item.secondary_name || item.en_name || item.another_name || ''
+
+    const coverHigh = item.cover?.high || item.img?.high || item.cover?.mid || item.cover?.low || ''
+    const coverMid = item.cover?.mid || item.img?.mid || coverHigh
+    const coverLow = item.cover?.low || item.img?.low || coverMid
+
+    // Determine type label and id
+    let typeName = 'Манга'
+    let typeId: number | undefined
+    if (typeof item.type === 'object' && item.type) {
+      typeName = item.type.name || 'Манга'
+      typeId = item.type.id
+    } else if (typeof item.type === 'string') {
+      typeName = item.type
+    }
+
+    // Determine language from type
+    let originalLanguage = 'ja'
+    if (typeName.toLowerCase().includes('манхва') || typeId === 2) originalLanguage = 'ko'
+    if (typeName.toLowerCase().includes('маньхуа') || typeId === 3) originalLanguage = 'zh'
+    if (typeName.toLowerCase().includes('рукомикс') || typeId === 5) originalLanguage = 'ru'
+
+    // Determine status label and id
+    let statusName = 'Онгоинг'
+    let statusId: number | undefined
+    if (typeof item.status === 'object' && item.status) {
+      statusName = item.status.name || 'Онгоинг'
+      statusId = item.status.id
+    } else if (typeof item.status === 'string') {
+      statusName = item.status
+    }
+
+    // Genres & categories
+    const genres = (item.genres || []).map((g: any) => (typeof g === 'object' ? g.name : g))
+    const categories = (item.categories || []).map((c: any) => (typeof c === 'object' ? c.name : c))
+
+    return {
+      id: dir,
+      numericId: item.id,
+      dir,
+      title,
+      altTitle,
+      description: item.description || '',
+      coverUrl: normalizeCoverUrl(coverMid),
+      coverUrlSmall: normalizeCoverUrl(coverLow),
+      coverUrlOriginal: normalizeCoverUrl(coverHigh),
+      status: statusName,
+      statusId,
+      translateStatus: typeof item.translate_status === 'object' ? item.translate_status?.name : item.translate_status,
+      year: item.issue_year,
+      avgRating: item.avg_rating ? String(item.avg_rating) : undefined,
+      totalVotes: item.total_votes,
+      totalViews: item.total_views,
+      countBookmarks: item.count_bookmarks,
+      countChapters: item.count_chapters,
+      genres,
+      categories,
+      type: typeName,
+      typeId,
+      originalLanguage,
+      branches: item.branches,
+      firstChapter: item.first_chapter
+    }
+  }
+
+  /**
+   * Fetch catalog titles
+   */
+  const getMangaList = async (params: {
+    ordering?: string
+    types?: number | string
+    genres?: string | number[]
+    categories?: string | number[]
+    status?: number | string
+    query?: string
+    page?: number
+    count?: number
+  } = {}) => {
+    const page = params.page || 1
+    const count = params.count || 24
+
+    const queryParams: Record<string, string> = {
+      page: String(page),
+      count: String(count),
+      ordering: params.ordering || '-rating'
+    }
+
+    if (params.query?.trim()) {
+      queryParams.query = params.query.trim()
+    }
+    if (params.types && params.types !== 'all') {
+      queryParams.types = String(params.types)
+    }
+    if (params.status && params.status !== 'all') {
+      queryParams.status = String(params.status)
+    }
+    if (params.genres) {
+      queryParams.genres = Array.isArray(params.genres) ? params.genres.join(',') : String(params.genres)
+    }
+    if (params.categories) {
+      queryParams.categories = Array.isArray(params.categories) ? params.categories.join(',') : String(params.categories)
+    }
+
+    const qs = new URLSearchParams(queryParams).toString()
+    const data = await apiFetch(`/catalog?${qs}`)
+
+    const items = (data.content || []).map(formatManga)
+    const total = data.props?.total_items || items.length
+    const totalPages = data.props?.total_pages || 1
+
+    return {
+      items,
+      total,
+      hasMore: page < totalPages
+    }
+  }
+
+  /**
+   * Fast search with autocomplete
+   */
+  const searchManga = async (queryText: string, page = 1, count = 10) => {
+    if (!queryText.trim()) return { items: [], total: 0, hasMore: false }
+
+    const qs = new URLSearchParams({
+      query: queryText.trim(),
+      page: String(page),
+      count: String(count)
+    }).toString()
+
+    const data = await apiFetch(`/search?${qs}`)
+    const rawResults = data.results || data.content || []
+    const items = rawResults.map(formatManga)
+    const total = data.meta?.total_items || items.length
+
+    return {
+      items,
+      total,
+      hasMore: page < (data.meta?.total_pages || 1)
+    }
+  }
+
+  /**
+   * Fetch full title details by dir slug
+   */
+  const getMangaById = async (dir: string): Promise<MangaTitle> => {
+    const data = await apiFetch(`/title/${encodeURIComponent(dir)}`)
+    const raw = data.content || data
+    if (!raw || !raw.id) {
+      throw new Error('Тайтл не найден')
+    }
+    return formatManga(raw)
+  }
+
+  /**
+   * Fetch chapters list for a branch
+   */
+  const getChapters = async (branchId: number, page = 1, count = 100) => {
+    const qs = new URLSearchParams({
+      branch_id: String(branchId),
+      page: String(page),
+      count: String(count)
+    }).toString()
+
+    const data = await apiFetch(`/chapters?${qs}`)
+    const rawList = data.content || data.results || []
+
+    const chapters: ChapterItem[] = rawList.map((ch: any) => ({
+      id: String(ch.id),
+      chapter: String(ch.chapter || ''),
+      tome: ch.tome,
+      name: ch.name || '',
+      uploadDate: ch.upload_date,
+      publishAt: ch.upload_date,
+      isPaid: Boolean(ch.is_paid),
+      price: ch.price,
+      score: ch.score,
+      groupName: ch.publishers?.[0]?.name,
+      index: ch.index
+    }))
+
+    return {
+      chapters,
+      hasMore: rawList.length >= count
+    }
+  }
+
+  /**
+   * Fetch all chapters grouped by volumes
+   */
+  const getAllChaptersGrouped = async (branchId: number): Promise<{ groups: VolumeGroup[]; allChapters: ChapterItem[] }> => {
+    let allChapters: ChapterItem[] = []
+    let page = 1
+    let hasMore = true
+
+    // Fetch up to 10 pages (1000 chapters)
+    while (hasMore && page <= 10) {
+      const res = await getChapters(branchId, page, 100)
+      allChapters.push(...res.chapters)
+      hasMore = res.hasMore
+      page++
+    }
+
+    // Group by volume
+    const volumeMap: Record<string, ChapterItem[]> = {}
+    for (const ch of allChapters) {
+      const vol = ch.tome ? `Том ${ch.tome}` : 'Без тома'
+      if (!volumeMap[vol]) volumeMap[vol] = []
+      volumeMap[vol].push(ch)
+    }
+
+    const groups: VolumeGroup[] = Object.entries(volumeMap).map(([volume, chapters]) => ({
+      volume,
+      chapters
+    }))
+
+    return {
+      groups,
+      allChapters
+    }
+  }
+
+  /**
+   * Fetch pages of a single chapter
+   */
+  const getChapterPages = async (chapterId: string | number) => {
+    const data = await apiFetch(`/chapter/${chapterId}`)
+    const chapterData = data.content || data
+
+    if (!chapterData || !chapterData.id) {
+      throw new Error(data.msg || 'Глава не найдена')
+    }
+
+    const rawPages = chapterData.pages || []
+    const pageUrls: string[] = []
+
+    for (const item of rawPages) {
+      if (Array.isArray(item)) {
+        for (const p of item) {
+          if (p && p.link) {
+            pageUrls.push(wrapProxyImageUrl(p.link))
+          }
+        }
+      } else if (item && item.link) {
+        pageUrls.push(wrapProxyImageUrl(item.link))
+      }
+    }
+
+    return {
+      id: String(chapterData.id),
+      chapter: String(chapterData.chapter || ''),
+      tome: chapterData.tome || 1,
+      name: chapterData.name || '',
+      isPaid: Boolean(chapterData.is_paid),
+      msg: data.msg || '',
+      pages: pageUrls,
+      next: chapterData.next ? {
+        id: String(chapterData.next.id),
+        chapter: String(chapterData.next.chapter || ''),
+        tome: chapterData.next.tome || 1,
+        isPaid: Boolean(chapterData.next.is_paid)
+      } : null,
+      previous: chapterData.previous ? {
+        id: String(chapterData.previous.id),
+        chapter: String(chapterData.previous.chapter || ''),
+        tome: chapterData.previous.tome || 1,
+        isPaid: Boolean(chapterData.previous.is_paid)
+      } : null
+    }
+  }
+
+  /**
+   * Fetch filter options (genres, categories, types, status)
+   */
+  const getFilters = async () => {
+    const data = await apiFetch('/forms?get=genres&get=categories&get=types&get=status')
+    const content = data.content || {}
+    return {
+      genres: (content.genres || []) as ReMangaGenre[],
+      categories: (content.categories || []) as ReMangaGenre[],
+      types: (content.types || []) as ReMangaType[],
+      status: (content.status || []) as ReMangaStatus[]
+    }
+  }
+
+  return {
+    getMangaList,
+    searchManga,
+    getMangaById,
+    getChapters,
+    getAllChaptersGrouped,
+    getChapterPages,
+    getFilters
+  }
+}
