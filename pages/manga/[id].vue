@@ -479,25 +479,6 @@ onMounted(() => {
       </section>
     </div>
 
-    <!-- Floating Mobile Quick Read Bar (visible on scroll) -->
-    <div
-      v-if="scrollY > 350"
-      class="md:hidden fixed bottom-20 inset-x-4 z-30 transition-all duration-300 animate-in fade-in slide-in-from-bottom-2"
-    >
-      <NuxtLink
-        :to="lastRead ? `/read/${lastRead.chapterId}?dir=${manga.id}` : (firstChapter ? `/read/${firstChapter.id}?dir=${manga.id}` : '#')"
-        class="w-full py-3.5 px-5 rounded-2xl bg-amber-400 text-zinc-950 font-black text-sm flex items-center justify-between shadow-2xl shadow-black/80 active:scale-[0.98] transition-transform border border-amber-300"
-      >
-        <div class="flex items-center gap-2 min-w-0">
-          <BookOpen class="w-4 h-4 shrink-0" />
-          <span class="truncate font-bold">
-            {{ lastRead ? `Продолжить гл. ${lastRead.chapterNumber}` : `Читать гл. ${firstChapter?.chapter || '1'}` }}
-          </span>
-        </div>
-        <span class="text-xs bg-black/15 px-2 py-0.5 rounded-lg shrink-0 font-mono font-bold">Перейти →</span>
-      </NuxtLink>
-    </div>
-
     <!-- Floating Back to Top Button (above mobile bottom bar) -->
     <transition
       enter-active-class="transition duration-300 ease-out"
@@ -510,7 +491,7 @@ onMounted(() => {
       <button
         v-if="scrollY > 500"
         type="button"
-        class="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-40 p-3 sm:px-4 sm:py-3 rounded-2xl bg-zinc-900 hover:bg-amber-400 text-zinc-300 hover:text-zinc-950 border border-zinc-700 shadow-lg transition-colors flex items-center gap-2 font-bold text-xs sm:text-sm cursor-pointer active:scale-95"
+        class="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-40 p-3 sm:px-4 sm:py-3 rounded-2xl bg-zinc-900 hover:bg-amber-400 text-zinc-300 hover:text-zinc-950 border border-zinc-700 shadow-lg transition-colors flex items-center gap-2 font-bold text-xs sm:text-sm cursor-pointer active:scale-95"
         title="Наверх"
         @click="scrollToTop"
       >
