@@ -21,6 +21,14 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AppUpdatePlugin.class);
         super.onCreate(savedInstanceState);
 
+        WebView webView = bridge.getWebView();
+        if (webView != null) {
+            android.webkit.WebSettings settings = webView.getSettings();
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
+        }
+
         bridge.setWebViewClient(new BridgeWebViewClient(bridge) {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {

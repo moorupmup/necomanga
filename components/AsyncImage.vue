@@ -33,7 +33,7 @@ const onLoaded = () => {
     if (isLoaded.value) {
       showSkeleton.value = false
     }
-  }, 750)
+  }, 250)
 }
 
 const checkComplete = () => {
@@ -77,7 +77,7 @@ onMounted(() => {
 
 <template>
   <div :class="['relative overflow-hidden bg-zinc-950', aspectClass || 'aspect-[2/3] w-full']">
-    <!-- Real Image with smooth cinematic fade-in and subtle settle -->
+    <!-- Real Image with clean, instant fade-in -->
     <img
       v-if="!hasError && src"
       ref="imgRef"
@@ -86,8 +86,8 @@ onMounted(() => {
       loading="lazy"
       decoding="async"
       :class="[
-        'w-full h-full object-cover object-center transition-all duration-700 ease-out transform-gpu',
-        isLoaded ? 'opacity-100 scale-100' : 'opacity-0 scale-105',
+        'w-full h-full object-cover object-center transition-opacity duration-200 ease-out',
+        isLoaded ? 'opacity-100' : 'opacity-0',
         imgClass
       ]"
       @load="onLoaded"
@@ -98,7 +98,7 @@ onMounted(() => {
     <div
       v-if="showSkeleton && !hasError && src"
       :class="[
-        'absolute inset-0 z-10 flex items-center justify-center bg-zinc-950 overflow-hidden select-none pointer-events-none transition-opacity duration-700 ease-out transform-gpu',
+        'absolute inset-0 z-10 flex items-center justify-center bg-zinc-950 overflow-hidden select-none pointer-events-none transition-opacity duration-200 ease-out',
         isLoaded ? 'opacity-0' : 'opacity-100'
       ]"
     >

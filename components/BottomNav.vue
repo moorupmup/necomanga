@@ -25,7 +25,7 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
 
 <template>
   <nav
-    class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-zinc-950/95 backdrop-blur-xl border-t border-zinc-800/80 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.5)] select-none transition-transform duration-300"
+    class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-zinc-950 border-t border-zinc-800 pb-safe select-none transition-transform duration-300"
   >
     <div class="grid grid-cols-4 h-16 items-center px-1">
       <!-- 1. Home -->

@@ -204,7 +204,7 @@ onUnmounted(() => {
     <!-- Top Sticky Floating Header with Safe Area -->
     <header
       :class="[
-        'fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-xl border-b border-zinc-800/80 transition-transform duration-300 pt-safe px-3 sm:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4',
+        'fixed top-0 left-0 right-0 z-50 bg-zinc-950 border-b border-zinc-800 transition-transform duration-300 pt-safe px-3 sm:px-8 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4',
         isHeaderVisible ? 'translate-y-0' : '-translate-y-full'
       ]"
     >
@@ -371,7 +371,7 @@ onUnmounted(() => {
         class="sm:hidden fixed inset-0 z-50 flex flex-col justify-end select-none"
       >
         <div
-          class="fixed inset-0 bg-black/75 backdrop-blur-xs"
+          class="fixed inset-0 bg-black/80"
           @click="isSettingsOpen = false"
         ></div>
 
@@ -560,6 +560,7 @@ onUnmounted(() => {
               :alt="`Страница ${index + 1}`"
               class="w-full h-auto block"
               loading="lazy"
+              decoding="async"
               @error="onImageError(index)"
             />
           </div>
@@ -588,6 +589,7 @@ onUnmounted(() => {
               :src="getPageSrc(pages[currentPageIndex], currentPageIndex)"
               :alt="`Страница ${currentPageIndex + 1}`"
               class="w-full h-auto block pointer-events-none"
+              decoding="async"
               @error="onImageError(currentPageIndex)"
             />
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Filter,
@@ -11,6 +11,7 @@ import {
   SlidersHorizontal
 } from 'lucide-vue-next'
 import { useReManga, type MangaTitle, type ReMangaGenre } from '~/composables/useReManga'
+import { registerBackHandler } from '~/composables/useBackButton'
 import MangaCard from '~/components/MangaCard.vue'
 import SpinnerArrow from '~/components/SpinnerArrow.vue'
 
@@ -173,7 +174,17 @@ watch(() => route.query, (newQ) => {
   }
 })
 
+let unregisterBack: (() => void) | null = null
+
 onMounted(async () => {
+  unregisterBack = registerBackHandler(() => {
+    if (isFilterSheetOpen.value) {
+      isFilterSheetOpen.value = false
+      return true
+    }
+    return false
+  })
+
   try {
     const filters = await getFilters()
     availableGenres.value = filters.genres.slice(0, 24)
@@ -181,6 +192,12 @@ onMounted(async () => {
     console.error('Failed to load filters', e)
   }
   loadManga(true)
+})
+
+onUnmounted(() => {
+  if (unregisterBack) {
+    unregisterBack()
+  }
 })
 </script>
 
@@ -343,7 +360,7 @@ onMounted(async () => {
       >
         <!-- Backdrop -->
         <div
-          class="fixed inset-0 bg-black/75 backdrop-blur-xs transition-opacity"
+          class="fixed inset-0 bg-black/80 transition-opacity"
           @click="isFilterSheetOpen = false"
         ></div>
 

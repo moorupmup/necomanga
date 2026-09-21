@@ -127,19 +127,15 @@ img {
     );
   }
 
-  /* Frosted Glass Badges & Pills (borderless frosted glass) */
+  /* Mobile-optimized Badges & Pills (eliminates expensive GPU blur passes during list scrolling) */
   .glass-badge {
-    background-color: rgba(9, 9, 11, 0.65);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    background-color: rgba(18, 18, 22, 0.88);
+    border: 1px solid rgba(255, 255, 255, 0.09);
   }
 
   .glass-badge-amber {
-    background-color: rgba(9, 9, 11, 0.65);
-    backdrop-filter: blur(14px) saturate(140%);
-    -webkit-backdrop-filter: blur(14px) saturate(140%);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    background-color: rgba(18, 18, 22, 0.88);
+    border: 1px solid rgba(251, 191, 36, 0.25);
   }
 
   /* Safe Area Utilities for Android & iOS mobile devices */

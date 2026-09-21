@@ -144,8 +144,8 @@ const displayGenres = computed(() => {
     :to="`/manga/${manga.id}`"
     :style="cardTransformStyle"
     :class="[
-      'group relative block aspect-[2/3] w-full rounded-2xl overflow-hidden border transition-all duration-300 bg-zinc-950 will-change-transform transform-gpu select-none active:scale-[0.98]',
-      isHovered ? 'z-20 border-zinc-500/80 shadow-2xl' : 'z-0 border-zinc-800/80 shadow-lg shadow-black/60'
+      'group relative block aspect-[2/3] w-full rounded-2xl overflow-hidden border transition-[transform,border-color] duration-200 bg-zinc-950 select-none active:scale-[0.98]',
+      isHovered ? 'z-20 border-zinc-500/80 shadow-xl' : 'z-0 border-zinc-800/80 shadow-md shadow-black/40'
     ]"
     @mousemove="handleMouseMove"
     @mouseenter="handleMouseEnter"

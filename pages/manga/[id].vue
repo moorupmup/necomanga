@@ -510,7 +510,7 @@ onMounted(() => {
       <button
         v-if="scrollY > 500"
         type="button"
-        class="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-40 p-3 sm:px-4 sm:py-3 rounded-2xl bg-zinc-900/95 hover:bg-amber-400 text-zinc-300 hover:text-zinc-950 border border-zinc-700 shadow-2xl backdrop-blur-md transition-all flex items-center gap-2 font-bold text-xs sm:text-sm cursor-pointer active:scale-95"
+        class="fixed bottom-20 md:bottom-8 right-4 md:right-8 z-40 p-3 sm:px-4 sm:py-3 rounded-2xl bg-zinc-900 hover:bg-amber-400 text-zinc-300 hover:text-zinc-950 border border-zinc-700 shadow-lg transition-colors flex items-center gap-2 font-bold text-xs sm:text-sm cursor-pointer active:scale-95"
         title="Наверх"
         @click="scrollToTop"
       >

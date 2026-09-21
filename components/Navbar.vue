@@ -46,7 +46,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <header class="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950/95 backdrop-blur-xl pt-safe select-none transition-all">
+  <header class="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950 pt-safe select-none">
     <div class="w-full px-3.5 sm:px-8 xl:px-12 h-14 sm:h-20 flex items-center justify-between gap-3 sm:gap-6">
       
       <!-- Brand Logo -->
