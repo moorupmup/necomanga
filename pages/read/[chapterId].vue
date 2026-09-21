@@ -37,6 +37,7 @@ const chapterInfo = ref<any>(null)
 const parentManga = ref<any>(null)
 const pages = ref<string[]>([])
 const prevChapter = ref<any>(null)
+const nextChapter = ref<any>(null)
 const retryKeys = ref<Record<number, number>>({})
 
 const getPageSrc = (originalUrl: string, index: number) => {
@@ -76,6 +77,8 @@ const loadChapterData = async () => {
   failedImages.value = {}
   currentPageIndex.value = 0
   retryKeys.value = {}
+  prevChapter.value = null
+  nextChapter.value = null
 
   try {
     const chapterData = await getChapterPages(chapterId.value)

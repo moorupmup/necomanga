@@ -199,6 +199,10 @@ export const useAppUpdate = () => {
     }
   }
 
+  const openModal = () => {
+    isModalOpen.value = true
+  }
+
   const closeModal = () => {
     if (!isDownloading.value) {
       isModalOpen.value = false
@@ -223,6 +227,7 @@ export const useAppUpdate = () => {
     checkForUpdates,
     startUpdate,
     openPermissionSettings,
+    openModal,
     closeModal
   }
 }
