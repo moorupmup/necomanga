@@ -94,7 +94,8 @@ export const normalizeCoverUrl = (path?: string): string => {
 
 export const wrapProxyImageUrl = (url: string): string => {
   if (!url) return ''
-  const fixed = url.replace('img.reimg.org', 'img-reserve.reimg2.org')
+  let fixed = url.replace(/^http:\/\//i, 'https://')
+  fixed = fixed.replace('img.reimg.org', 'img-reserve.reimg2.org')
   if (isNativePlatform()) {
     return fixed
   }

@@ -37,30 +37,32 @@ const chapterInfo = ref<any>(null)
 const parentManga = ref<any>(null)
 const pages = ref<string[]>([])
 const prevChapter = ref<any>(null)
-const nextChapter = ref<any>(null)
-const pageBlobs = ref<Record<number, string>>({})
+const retryKeys = ref<Record<number, number>>({})
 
 const getPageSrc = (originalUrl: string, index: number) => {
-  return pageBlobs.value[index] || originalUrl
-}
-
-const loadNativeBlobs = (urls: string[]) => {
-  if (!isNativePlatform()) return
-  urls.forEach(async (url, idx) => {
-    try {
-      const res = await fetch(url, { headers: { Referer: 'https://remanga.org/' } })
-      if (res.ok) {
-        const blob = await res.blob()
-        pageBlobs.value[idx] = URL.createObjectURL(blob)
-      }
-    } catch (e) {
-      console.warn('Could not load native image blob', idx, e)
-    }
-  })
+  const retry = retryKeys.value[index]
+  if (retry) {
+    const sep = originalUrl.includes('?') ? '&' : '?'
+    return `${originalUrl}${sep}_r=${retry}`
+  }
+  return originalUrl
 }
 
 const currentPageIndex = ref(0)
 const failedImages = ref<Record<number, boolean>>({})
+
+// Preload next 2 pages in single-page mode for instant flipping
+watch(currentPageIndex, (newIdx) => {
+  if (readerSettings.mode === 'single' && pages.value.length > 0) {
+    for (let i = 1; i <= 2; i++) {
+      const nextIdx = newIdx + i
+      if (nextIdx < pages.value.length) {
+        const img = new Image()
+        img.src = getPageSrc(pages.value[nextIdx], nextIdx)
+      }
+    }
+  }
+})
 
 const widthClass = computed(() => {
   if (readerSettings.maxWidth === 'wide') return 'max-w-5xl'
@@ -73,13 +75,12 @@ const loadChapterData = async () => {
   error.value = null
   failedImages.value = {}
   currentPageIndex.value = 0
-  pageBlobs.value = {}
+  retryKeys.value = {}
 
   try {
     const chapterData = await getChapterPages(chapterId.value)
     chapterInfo.value = chapterData
     pages.value = chapterData.pages
-    loadNativeBlobs(chapterData.pages)
     prevChapter.value = chapterData.previous
     nextChapter.value = chapterData.next
 
@@ -137,6 +138,7 @@ const toggleControls = () => {
 }
 
 const retryImage = (index: number) => {
+  retryKeys.value[index] = Date.now()
   delete failedImages.value[index]
 }
 
