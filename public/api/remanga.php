@@ -93,6 +93,8 @@ $queryParams = $_GET;
 
 if ($route === 'catalog') {
     $targetUrl = 'https://api.remanga.org/api/search/catalog/?' . http_build_query($queryParams);
+} elseif ($route === 'top' || $route === 'titles/top' || $route === 'v2/titles/top') {
+    $targetUrl = 'https://api.remanga.org/api/v2/titles/top/?' . http_build_query($queryParams);
 } elseif ($route === 'search') {
     $targetUrl = 'https://api.remanga.org/api/v2/search/?' . http_build_query($queryParams);
 } elseif ($route === 'forms') {

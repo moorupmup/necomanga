@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import {
-  Flame,
-  Compass,
-  Bookmark,
-  History
-} from 'lucide-vue-next'
 import { useBookmarksStore } from '~/stores/bookmarks'
 import { useHistoryStore } from '~/stores/history'
+import AnimatedFlame from '~/components/icons/AnimatedFlame.vue'
+import AnimatedCompass from '~/components/icons/AnimatedCompass.vue'
+import AnimatedBookmark from '~/components/icons/AnimatedBookmark.vue'
+import AnimatedHistory from '~/components/icons/AnimatedHistory.vue'
 
 const route = useRoute()
 const bookmarksStore = useBookmarksStore()
 const historyStore = useHistoryStore()
+
+const flameRef = ref<InstanceType<typeof AnimatedFlame> | null>(null)
+const compassRef = ref<InstanceType<typeof AnimatedCompass> | null>(null)
+const bookmarkRef = ref<InstanceType<typeof AnimatedBookmark> | null>(null)
+const historyRef = ref<InstanceType<typeof AnimatedHistory> | null>(null)
+
+const triggerIcon = (tab: 'home' | 'catalog' | 'bookmarks' | 'history') => {
+  if (tab === 'home') flameRef.value?.trigger()
+  else if (tab === 'catalog') compassRef.value?.trigger()
+  else if (tab === 'bookmarks') bookmarkRef.value?.trigger()
+  else if (tab === 'history') historyRef.value?.trigger()
+}
 
 const bookmarksCount = computed(() => Object.keys(bookmarksStore.bookmarks).length)
 const historyCount = computed(() => historyStore.history.length)
@@ -34,8 +44,14 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
         to="/"
         class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
         :class="isHomeActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
+        @click="triggerIcon('home')"
       >
-        <Flame :class="['w-5 h-5 transition-transform', isHomeActive ? 'scale-110 text-amber-400' : '']" />
+        <AnimatedFlame
+          ref="flameRef"
+          :size="20"
+          :active="isHomeActive"
+          :class="isHomeActive ? 'text-amber-400' : 'text-zinc-400'"
+        />
         <span class="text-[11px] leading-tight">Главная</span>
         <span
           v-if="isHomeActive"
@@ -48,8 +64,14 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
         to="/catalog"
         class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
         :class="isCatalogActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
+        @click="triggerIcon('catalog')"
       >
-        <Compass :class="['w-5 h-5 transition-transform', isCatalogActive ? 'scale-110 text-amber-400' : '']" />
+        <AnimatedCompass
+          ref="compassRef"
+          :size="20"
+          :active="isCatalogActive"
+          :class="isCatalogActive ? 'text-amber-400' : 'text-zinc-400'"
+        />
         <span class="text-[11px] leading-tight">Каталог</span>
         <span
           v-if="isCatalogActive"
@@ -62,9 +84,15 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
         to="/bookmarks"
         class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
         :class="isBookmarksActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
+        @click="triggerIcon('bookmarks')"
       >
         <div class="relative">
-          <Bookmark :class="['w-5 h-5 transition-transform', isBookmarksActive ? 'scale-110 text-amber-400 fill-amber-400/20' : '']" />
+          <AnimatedBookmark
+            ref="bookmarkRef"
+            :size="20"
+            :active="isBookmarksActive"
+            :class="isBookmarksActive ? 'text-amber-400' : 'text-zinc-400'"
+          />
           <span
             v-if="bookmarksCount > 0"
             class="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 text-[9px] font-black rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center leading-none"
@@ -84,9 +112,15 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
         to="/bookmarks?tab=history"
         class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
         :class="isHistoryActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
+        @click="triggerIcon('history')"
       >
         <div class="relative">
-          <History :class="['w-5 h-5 transition-transform', isHistoryActive ? 'scale-110 text-amber-400' : '']" />
+          <AnimatedHistory
+            ref="historyRef"
+            :size="20"
+            :active="isHistoryActive"
+            :class="isHistoryActive ? 'text-amber-400' : 'text-zinc-400'"
+          />
           <span
             v-if="historyCount > 0"
             class="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 text-[9px] font-black rounded-full bg-zinc-700 text-zinc-200 flex items-center justify-center leading-none"

@@ -54,6 +54,18 @@ export interface VolumeGroup {
   chapters: ChapterItem[]
 }
 
+export interface ChapterNav {
+  id: string
+  chapter: string
+  tome?: string | number
+  name?: string
+  isPaid?: boolean
+}
+
+// Module-level in-memory cache for branch chapters
+const branchChaptersCache = new Map<number, ChapterItem[]>()
+const branchFetchingPromises = new Map<number, Promise<ChapterItem[]>>()
+
 export interface ReMangaGenre {
   id: number
   name: string
@@ -120,9 +132,10 @@ export const useReManga = () => {
     if (cleanPath === 'search') return `https://remanga.org/api/v2/search/${qs}`
     if (cleanPath === 'forms') return `https://remanga.org/api/forms/titles/${qs}`
     if (cleanPath === 'chapters') return `https://remanga.org/api/titles/chapters/${qs}`
+    if (cleanPath === 'top' || cleanPath.startsWith('top?')) return `https://api.remanga.org/api/v2/titles/top/${qs}`
 
     const chapterMatch = cleanPath.match(/^chapter\/(\d+)/)
-    if (chapterMatch) return `https://remanga.org/api/titles/chapters/${chapterMatch[1]}/`
+    if (chapterMatch) return `https://api.remanga.org/api/v2/titles/chapters/${chapterMatch[1]}/`
 
     const titleMatch = cleanPath.match(/^title\/([^/]+)/)
     if (titleMatch) return `https://remanga.org/api/titles/${encodeURIComponent(decodeURIComponent(titleMatch[1]))}/`
@@ -356,16 +369,29 @@ export const useReManga = () => {
    * Fetch all chapters grouped by volumes
    */
   const getAllChaptersGrouped = async (branchId: number): Promise<{ groups: VolumeGroup[]; allChapters: ChapterItem[] }> => {
-    let allChapters: ChapterItem[] = []
-    let page = 1
-    let hasMore = true
+    let allChapters: ChapterItem[] = branchChaptersCache.get(branchId) || []
 
-    // Fetch up to 10 pages (1000 chapters)
-    while (hasMore && page <= 10) {
-      const res = await getChapters(branchId, page, 100)
-      allChapters.push(...res.chapters)
-      hasMore = res.hasMore
-      page++
+    if (allChapters.length === 0) {
+      let page = 1
+      let hasMore = true
+
+      // Fetch up to 20 pages (2000 chapters)
+      while (hasMore && page <= 20) {
+        const res = await getChapters(branchId, page, 100)
+        allChapters.push(...res.chapters)
+        hasMore = res.hasMore
+        page++
+      }
+
+      // Sort ascending by index or chapter number
+      allChapters.sort((a, b) => {
+        if (a.index !== undefined && b.index !== undefined) {
+          return a.index - b.index
+        }
+        return (parseFloat(a.chapter) || 0) - (parseFloat(b.chapter) || 0)
+      })
+
+      branchChaptersCache.set(branchId, allChapters)
     }
 
     // Group by volume
@@ -421,6 +447,7 @@ export const useReManga = () => {
       isPaid: Boolean(chapterData.is_paid),
       msg: data.msg || '',
       pages: pageUrls,
+      branchId: chapterData.branch_id ? Number(chapterData.branch_id) : undefined,
       next: chapterData.next ? {
         id: String(chapterData.next.id),
         chapter: String(chapterData.next.chapter || ''),
@@ -437,6 +464,75 @@ export const useReManga = () => {
   }
 
   /**
+   * Resolve previous and next chapter from branch chapters
+   */
+  const getAdjacentChapters = async (
+    branchId: number,
+    currentChapterId: string | number
+  ): Promise<{ prev: ChapterNav | null; next: ChapterNav | null }> => {
+    let chapters = branchChaptersCache.get(branchId)
+
+    if (!chapters || chapters.length === 0) {
+      if (!branchFetchingPromises.has(branchId)) {
+        const fetchPromise = (async () => {
+          let list: ChapterItem[] = []
+          let page = 1
+          let hasMore = true
+          while (hasMore && page <= 20) {
+            const res = await getChapters(branchId, page, 100)
+            list.push(...res.chapters)
+            hasMore = res.hasMore
+            page++
+          }
+          list.sort((a, b) => {
+            if (a.index !== undefined && b.index !== undefined) {
+              return a.index - b.index
+            }
+            return (parseFloat(a.chapter) || 0) - (parseFloat(b.chapter) || 0)
+          })
+          branchChaptersCache.set(branchId, list)
+          return list
+        })().finally(() => {
+          branchFetchingPromises.delete(branchId)
+        })
+
+        branchFetchingPromises.set(branchId, fetchPromise)
+      }
+
+      chapters = await branchFetchingPromises.get(branchId)!
+    }
+
+    if (!chapters || chapters.length === 0) {
+      return { prev: null, next: null }
+    }
+
+    const strId = String(currentChapterId)
+    const idx = chapters.findIndex(c => String(c.id) === strId)
+
+    if (idx === -1) {
+      return { prev: null, next: null }
+    }
+
+    const prev: ChapterNav | null = idx > 0 ? {
+      id: chapters[idx - 1].id,
+      chapter: chapters[idx - 1].chapter,
+      tome: chapters[idx - 1].tome,
+      name: chapters[idx - 1].name,
+      isPaid: chapters[idx - 1].isPaid
+    } : null
+
+    const next: ChapterNav | null = idx < chapters.length - 1 ? {
+      id: chapters[idx + 1].id,
+      chapter: chapters[idx + 1].chapter,
+      tome: chapters[idx + 1].tome,
+      name: chapters[idx + 1].name,
+      isPaid: chapters[idx + 1].isPaid
+    } : null
+
+    return { prev, next }
+  }
+
+  /**
    * Fetch filter options (genres, categories, types, status)
    */
   const getFilters = async () => {
@@ -450,13 +546,29 @@ export const useReManga = () => {
     }
   }
 
+  /**
+   * Fetch trending titles ("В тренде") from ReManga v2/titles/top
+   */
+  const getTrendingTitles = async (count = 8): Promise<MangaTitle[]> => {
+    try {
+      const data = await apiFetch(`/top?count=${count}`)
+      const rawList = data.titles || data.content || []
+      return rawList.map(formatManga)
+    } catch (e) {
+      console.error('Failed to load trending titles', e)
+      return []
+    }
+  }
+
   return {
     getMangaList,
+    getTrendingTitles,
     searchManga,
     getMangaById,
     getChapters,
     getAllChaptersGrouped,
     getChapterPages,
+    getAdjacentChapters,
     getFilters
   }
 }

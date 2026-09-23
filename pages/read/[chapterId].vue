@@ -29,7 +29,7 @@ const router = useRouter()
 const chapterId = computed(() => route.params.chapterId as string)
 const mangaDir = computed(() => (route.query.dir as string) || '')
 
-const { getChapterPages, getMangaById } = useReManga()
+const { getChapterPages, getMangaById, getAdjacentChapters } = useReManga()
 const readerSettings = useReaderSettingsStore()
 const historyStore = useHistoryStore()
 
@@ -92,6 +92,17 @@ const loadChapterData = async () => {
     prevChapter.value = chapterData.previous
     nextChapter.value = chapterData.next
 
+    // Asynchronously resolve adjacent chapters (prev & next) without blocking page render
+    const branchId = chapterData.branchId
+    if (branchId) {
+      getAdjacentChapters(branchId, chapterData.id).then(({ prev, next }) => {
+        if (!prevChapter.value && prev) prevChapter.value = prev
+        if (!nextChapter.value && next) nextChapter.value = next
+      }).catch(err => {
+        console.warn('Could not determine adjacent chapters', err)
+      })
+    }
+
     // If mangaDir is known, load title info & record progress
     if (mangaDir.value) {
       try {
@@ -107,6 +118,16 @@ const loadChapterData = async () => {
           volumeNumber: String(chapterData.tome || '1'),
           chapterTitle: chapterData.name
         })
+
+        // Fallback for adjacent chapters if chapterData didn't have branchId
+        if (!branchId && manga.branches?.[0]?.id) {
+          getAdjacentChapters(manga.branches[0].id, chapterData.id).then(({ prev, next }) => {
+            if (!prevChapter.value && prev) prevChapter.value = prev
+            if (!nextChapter.value && next) nextChapter.value = next
+          }).catch(e => {
+            console.warn('Fallback adjacent chapters failed', e)
+          })
+        }
       } catch (e) {
         console.warn('Could not load parent manga info', e)
       }
@@ -119,7 +140,8 @@ const loadChapterData = async () => {
 }
 
 const goToChapter = (id: string) => {
-  const query = mangaDir.value ? { dir: mangaDir.value } : {}
+  const dir = mangaDir.value || parentManga.value?.id || ''
+  const query = dir ? { dir } : {}
   router.push({ path: `/read/${id}`, query })
 }
 
