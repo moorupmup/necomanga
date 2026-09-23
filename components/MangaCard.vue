@@ -36,6 +36,21 @@ const displayGenres = computed(() => {
   const combined = [...g, ...c, ...tags]
   return Array.from(new Set(combined.filter(Boolean)))
 })
+
+const isOnePieceEasterEgg = computed(() => {
+  const title = (props.manga.title || '').toLowerCase()
+  const altTitle = (props.manga.altTitle || '').toLowerCase()
+  const dir = (props.manga.dir || props.manga.id || '').toLowerCase()
+  const text = `${title} ${altTitle} ${dir}`
+  return (
+    text.includes('ван пис') ||
+    text.includes('ван-пис') ||
+    text.includes('ванпис') ||
+    text.includes('one piece') ||
+    text.includes('one-piece') ||
+    text.includes('one_piece')
+  )
+})
 </script>
 
 <template>
@@ -58,16 +73,19 @@ const displayGenres = computed(() => {
     <div class="absolute top-1.5 sm:top-2.5 left-1.5 sm:left-2.5 right-1.5 sm:right-2.5 flex items-center justify-between gap-1 pointer-events-none z-10">
       <span
         v-if="originLabel"
-        class="glass-badge inline-flex items-center px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded sm:rounded-lg text-zinc-100 shadow-sm"
+        :class="[
+          'glass-badge inline-flex items-center px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-xs font-semibold rounded sm:rounded-lg text-zinc-100 shadow-sm shrink-0 whitespace-nowrap',
+          isOnePieceEasterEgg && manga.avgRating && parseFloat(manga.avgRating) > 0 ? 'hidden min-[400px]:inline-flex' : ''
+        ]"
       >
         {{ originLabel }}
       </span>
 
-      <div class="flex items-center gap-1 sm:gap-1.5 ml-auto">
+      <div class="flex items-center gap-1 sm:gap-1.5 ml-auto shrink-0">
         <!-- Rating badge -->
         <span
           v-if="manga.avgRating && parseFloat(manga.avgRating) > 0"
-          class="glass-badge inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-xs font-bold rounded sm:rounded-lg text-amber-400 shadow-sm"
+          class="glass-badge inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-xs font-bold rounded sm:rounded-lg text-amber-400 shadow-sm shrink-0 whitespace-nowrap"
         >
           <Star class="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 fill-amber-400 text-amber-400" />
           <span>{{ manga.avgRating }}</span>
@@ -76,11 +94,19 @@ const displayGenres = computed(() => {
         <!-- Bookmark pill -->
         <span
           v-if="bookmark"
-          class="glass-badge inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-xs font-bold rounded sm:rounded-lg text-zinc-200 shadow-sm"
+          class="glass-badge inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-xs font-bold rounded sm:rounded-lg text-zinc-200 shadow-sm shrink-0 whitespace-nowrap"
         >
           <Bookmark class="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 fill-zinc-200 text-zinc-200" />
           <span class="hidden sm:inline">{{ BOOKMARK_LABELS[bookmark.status] }}</span>
         </span>
+
+        <!-- One Piece Easter Egg (Nikroder) -->
+        <img
+          v-if="isOnePieceEasterEgg"
+          src="/nikroder.png"
+          alt="Nikroder"
+          class="w-5.5 h-5.5 sm:w-7 sm:h-7 object-contain drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] filter group-hover:scale-125 group-hover:rotate-6 transition-transform duration-300 pointer-events-none select-none shrink-0"
+        />
       </div>
     </div>
 
