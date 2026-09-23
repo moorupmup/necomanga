@@ -44,15 +44,15 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
-      - name: Build Debug APK
+      - name: Build Signed Release APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleRelease -PappVersionCode=${{ github.run_number }} -PappVersionName=1.1.${{ github.run_number }} --stacktrace
 
       - name: Prepare APK artifact
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk NecoManga.apk
+          cp android/app/build/outputs/apk/release/app-release.apk NecoManga.apk
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2

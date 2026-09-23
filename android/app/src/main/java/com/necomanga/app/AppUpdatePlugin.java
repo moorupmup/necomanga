@@ -90,7 +90,10 @@ public class AppUpdatePlugin extends Plugin {
                 }
 
                 long totalBytes = conn.getContentLengthLong();
-                File cacheDir = getContext().getCacheDir();
+                File cacheDir = getContext().getExternalCacheDir();
+                if (cacheDir == null) {
+                    cacheDir = getContext().getCacheDir();
+                }
                 apkFile = new File(cacheDir, "necomanga_update.apk");
                 if (apkFile.exists()) {
                     apkFile.delete();
@@ -166,6 +169,26 @@ public class AppUpdatePlugin extends Plugin {
         intent.setDataAndType(apkUri, "application/vnd.android.package-archive");
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        try {
+            android.content.pm.PackageManager pm = context.getPackageManager();
+            java.util.List<android.content.pm.ResolveInfo> resolveInfos = pm.queryIntentActivities(
+                intent,
+                android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+            );
+            for (android.content.pm.ResolveInfo info : resolveInfos) {
+                if (info.activityInfo != null && info.activityInfo.packageName != null) {
+                    context.grantUriPermission(
+                        info.activityInfo.packageName,
+                        apkUri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    );
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Could not grant explicit URI permission to activities", e);
+        }
 
         context.startActivity(intent);
     }
