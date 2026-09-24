@@ -25,6 +25,7 @@ import { useReaderSettingsStore } from '~/stores/readerSettings'
 import { useHistoryStore } from '~/stores/history'
 import { useContentSourceStore } from '~/stores/contentSource'
 import { registerBackHandler } from '~/composables/useBackButton'
+import { useMediaSave } from '~/composables/useMediaSave'
 import SpinnerArrow from '~/components/SpinnerArrow.vue'
 import ZoomableImage from '~/components/ZoomableImage.vue'
 
@@ -37,6 +38,7 @@ const { getChapterPages, getMangaById, getAdjacentChapters } = useReManga()
 const readerSettings = useReaderSettingsStore()
 const historyStore = useHistoryStore()
 const contentSourceStore = useContentSourceStore()
+const mediaSave = useMediaSave()
 
 const isLoading = ref(true)
 const error = ref<string | null>(null)
@@ -84,31 +86,14 @@ const saveContextImage = async () => {
   const filename = `${cleanTitle}_glava_${chNum}_stranica_${index + 1}.jpg`
 
   try {
-    const res = await fetch(src)
-    if (!res.ok) throw new Error('Fetch failed')
-    const blob = await res.blob()
-    const blobUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = blobUrl
-    a.download = filename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1500)
-    showToast(`Страница ${index + 1} успешно сохранена`)
-  } catch (err) {
-    try {
-      const a = document.createElement('a')
-      a.href = src
-      a.download = filename
-      a.target = '_blank'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      showToast('Изображение открыто для сохранения')
-    } catch {
-      showToast('Не удалось сохранить изображение')
-    }
+    const res = await mediaSave.saveImage({
+      src,
+      filename,
+      albumName: 'NecoManga'
+    })
+    showToast(res.message)
+  } catch (err: any) {
+    showToast(err?.message || 'Не удалось сохранить изображение')
   } finally {
     isSavingImage.value = false
     closeContextMenu()
@@ -1202,7 +1187,7 @@ onUnmounted(() => {
                     {{ isSavingImage ? 'Сохранение...' : 'Сохранить изображение' }}
                   </div>
                   <div class="text-[11px] text-zinc-400">
-                    Скачать файл страницы на устройство
+                    {{ mediaSave.isNative() ? 'Сохранить в галерею (альбом NecoManga)' : 'Скачать файл страницы на устройство' }}
                   </div>
                 </div>
               </button>

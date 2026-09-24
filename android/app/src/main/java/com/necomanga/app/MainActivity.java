@@ -19,6 +19,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(AppUpdatePlugin.class);
+        registerPlugin(MediaSavePlugin.class);
         super.onCreate(savedInstanceState);
 
         WebView webView = bridge.getWebView();
