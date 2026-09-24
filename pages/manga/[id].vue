@@ -90,7 +90,7 @@ const getStatusInfo = (status?: string) => {
 }
 
 const bookmark = computed(() => (manga.value ? bookmarksStore.getBookmark(manga.value.id) : null))
-const lastRead = computed(() => historyStore.getLastRead(mangaId.value))
+const lastRead = computed(() => historyStore.getLastRead(mangaId.value, manga.value?.numericId))
 
 const allChapters = computed(() => {
   return [...allChaptersList.value].sort((a, b) => {
@@ -176,10 +176,12 @@ const removeBookmark = () => {
 }
 
 const isChapterRead = (chapterId: string, chapterNumber: string) => {
-  if (!lastRead.value) return false
-  const readNum = parseFloat(lastRead.value.chapterNumber) || 0
-  const curNum = parseFloat(chapterNumber) || 0
-  return curNum <= readNum
+  return historyStore.isChapterRead(
+    mangaId.value,
+    chapterId,
+    chapterNumber,
+    manga.value?.numericId ? String(manga.value.numericId) : undefined
+  )
 }
 
 let unregisterBack: (() => void) | null = null

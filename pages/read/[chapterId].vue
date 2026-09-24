@@ -16,7 +16,9 @@ import {
   AlertCircle,
   Lock,
   ExternalLink,
-  X
+  X,
+  Download,
+  Check
 } from 'lucide-vue-next'
 import { useReManga, isNativePlatform } from '~/composables/useReManga'
 import { useReaderSettingsStore } from '~/stores/readerSettings'
@@ -24,6 +26,7 @@ import { useHistoryStore } from '~/stores/history'
 import { useContentSourceStore } from '~/stores/contentSource'
 import { registerBackHandler } from '~/composables/useBackButton'
 import SpinnerArrow from '~/components/SpinnerArrow.vue'
+import ZoomableImage from '~/components/ZoomableImage.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -39,6 +42,78 @@ const isLoading = ref(true)
 const error = ref<string | null>(null)
 const isHeaderVisible = ref(true)
 const isSettingsOpen = ref(false)
+const isContextMenuOpen = ref(false)
+const contextMenuPage = ref<{ index: number; src: string } | null>(null)
+const isSavingImage = ref(false)
+const toastMessage = ref<string | null>(null)
+let toastTimer: any = null
+
+const showToast = (msg: string) => {
+  if (toastTimer) clearTimeout(toastTimer)
+  toastMessage.value = msg
+  toastTimer = setTimeout(() => {
+    toastMessage.value = null
+  }, 2400)
+}
+
+const handleImageLongPress = (payload: { index: number; src: string }) => {
+  contextMenuPage.value = payload
+  isContextMenuOpen.value = true
+}
+
+const closeContextMenu = () => {
+  isContextMenuOpen.value = false
+}
+
+const reloadContextImage = () => {
+  if (!contextMenuPage.value) return
+  const idx = contextMenuPage.value.index
+  retryImage(idx)
+  closeContextMenu()
+  showToast(`Страница ${idx + 1} перезагружается...`)
+}
+
+const saveContextImage = async () => {
+  if (!contextMenuPage.value) return
+  const { index, src } = contextMenuPage.value
+  isSavingImage.value = true
+
+  const mangaTitle = parentManga.value?.title || mangaDir.value || 'manga'
+  const cleanTitle = mangaTitle.replace(/[\\/:*?"<>|]+/g, '_').trim()
+  const chNum = chapterInfo.value?.chapter || '0'
+  const filename = `${cleanTitle}_glava_${chNum}_stranica_${index + 1}.jpg`
+
+  try {
+    const res = await fetch(src)
+    if (!res.ok) throw new Error('Fetch failed')
+    const blob = await res.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1500)
+    showToast(`Страница ${index + 1} успешно сохранена`)
+  } catch (err) {
+    try {
+      const a = document.createElement('a')
+      a.href = src
+      a.download = filename
+      a.target = '_blank'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      showToast('Изображение открыто для сохранения')
+    } catch {
+      showToast('Не удалось сохранить изображение')
+    }
+  } finally {
+    isSavingImage.value = false
+    closeContextMenu()
+  }
+}
 
 const chapterInfo = ref<any>(null)
 const parentManga = ref<any>(null)
@@ -177,22 +252,36 @@ const loadChapterData = async () => {
       })
     }
 
-    // If mangaDir is known, load title info & record progress
-    if (mangaDir.value) {
-      try {
-        const manga = await getMangaById(mangaDir.value, '', chapterData.isNovel)
-        parentManga.value = manga
+    // Instantly record progress and mark read with whatever info is available
+    const saveCurrentProgress = () => {
+      const effectiveId = parentManga.value?.id || mangaDir.value || ''
+      const effectiveTitle = parentManga.value?.title || (mangaDir.value ? mangaDir.value.replace(/[-_]/g, ' ') : '')
+      const effectiveCover = parentManga.value?.coverUrlSmall || parentManga.value?.coverUrl || ''
 
+      if (effectiveId && chapterData.id) {
         historyStore.recordProgress({
-          mangaId: manga.id,
-          mangaTitle: manga.title,
-          coverUrl: manga.coverUrlSmall || manga.coverUrl,
-          chapterId: chapterData.id,
-          chapterNumber: chapterData.chapter || '0',
+          mangaId: effectiveId,
+          mangaTitle: effectiveTitle || 'Манга',
+          coverUrl: effectiveCover,
+          chapterId: String(chapterData.id),
+          chapterNumber: String(chapterData.chapter || '0'),
           volumeNumber: String(chapterData.tome || '1'),
           chapterTitle: chapterData.name,
-          contentType: chapterData.isNovel ? 'novel' : 'manga'
+          contentType: chapterData.isNovel ? 'novel' : 'manga',
+          mangaDir: parentManga.value?.dir || mangaDir.value,
+          numericId: parentManga.value?.numericId
         })
+      }
+    }
+
+    saveCurrentProgress()
+
+    // If mangaDir is known and parentManga isn't loaded yet, load title info in background
+    const effectiveDir = mangaDir.value || parentManga.value?.dir || parentManga.value?.id
+    if (effectiveDir && !parentManga.value) {
+      getMangaById(effectiveDir, '', chapterData.isNovel).then(manga => {
+        parentManga.value = manga
+        saveCurrentProgress() // Re-save with loaded title and cover
 
         // Fallback for adjacent chapters if chapterData didn't have branchId
         if (!branchId && manga.branches?.[0]?.id) {
@@ -203,9 +292,9 @@ const loadChapterData = async () => {
             console.warn('Fallback adjacent chapters failed', e)
           })
         }
-      } catch (e) {
-        console.warn('Could not load parent manga info', e)
-      }
+      }).catch(e => {
+        console.warn('Could not load parent manga info in background', e)
+      })
     }
   } catch (err: any) {
     error.value = err.message || 'Ошибка загрузки страниц главы'
@@ -214,8 +303,32 @@ const loadChapterData = async () => {
   }
 }
 
+const markCurrentChapterRead = () => {
+  const currentChapter = chapterInfo.value
+  if (!currentChapter?.id) return
+
+  const effectiveId = parentManga.value?.id || mangaDir.value || ''
+  if (!effectiveId) return
+
+  historyStore.markChapterRead(
+    effectiveId,
+    String(currentChapter.id),
+    String(currentChapter.chapter || '0'),
+    isNovelChapter.value ? 'novel' : 'manga',
+    {
+      mangaTitle: parentManga.value?.title || effectiveId,
+      coverUrl: parentManga.value?.coverUrlSmall || parentManga.value?.coverUrl,
+      mangaDir: parentManga.value?.dir || mangaDir.value,
+      numericId: parentManga.value?.numericId,
+      volumeNumber: String(currentChapter.tome || '1'),
+      chapterTitle: currentChapter.name
+    }
+  )
+}
+
 const goToChapter = (id: string) => {
-  const dir = mangaDir.value || parentManga.value?.id || ''
+  markCurrentChapterRead()
+  const dir = mangaDir.value || parentManga.value?.dir || parentManga.value?.id || ''
   const query: Record<string, string> = {}
   if (dir) query.dir = dir
   query.type = isNovelChapter.value ? 'novel' : 'manga'
@@ -235,7 +348,11 @@ const nextPage = () => {
   if (currentPageIndex.value < pages.value.length - 1) {
     currentPageIndex.value++
     window.scrollTo({ top: 0, behavior: 'smooth' })
+    if (currentPageIndex.value === pages.value.length - 1) {
+      markCurrentChapterRead()
+    }
   } else if (nextChapter.value) {
+    markCurrentChapterRead()
     goToChapter(nextChapter.value.id)
   }
 }
@@ -270,12 +387,29 @@ const handleScroll = () => {
     isHeaderVisible.value = true
   }
   lastScrollY = currentY
+
+  // Mark chapter read when scrolled past 70% of the document height in webtoon/novel mode
+  if (typeof document !== 'undefined') {
+    const scrollHeight = document.documentElement.scrollHeight
+    const clientHeight = window.innerHeight
+    if (scrollHeight > clientHeight + 300) {
+      const scrollProgress = (currentY + clientHeight) / scrollHeight
+      if (scrollProgress >= 0.7) {
+        markCurrentChapterRead()
+      }
+    }
+  }
 }
 
-watch(chapterId, () => {
-  loadChapterData()
-  window.scrollTo({ top: 0, behavior: 'instant' })
-})
+watch(
+  () => [route.params.chapterId, route.query.dir],
+  ([newChId]) => {
+    if (newChId) {
+      loadChapterData()
+      window.scrollTo({ top: 0, behavior: 'instant' })
+    }
+  }
+)
 
 let unregisterBack: (() => void) | null = null
 
@@ -285,6 +419,10 @@ onMounted(() => {
   window.addEventListener('scroll', handleScroll, { passive: true })
 
   unregisterBack = registerBackHandler(() => {
+    if (isContextMenuOpen.value) {
+      isContextMenuOpen.value = false
+      return true
+    }
     if (isSettingsOpen.value) {
       isSettingsOpen.value = false
       return true
@@ -296,6 +434,7 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
   window.removeEventListener('scroll', handleScroll)
+  if (toastTimer) clearTimeout(toastTimer)
   if (unregisterBack) {
     unregisterBack()
   }
@@ -870,7 +1009,6 @@ onUnmounted(() => {
         <div
           v-if="readerSettings.mode === 'webtoon'"
           :class="['mx-auto flex flex-col items-center select-none', widthClass]"
-          @click="toggleControls"
         >
           <div
             v-for="(pageUrl, index) in pages"
@@ -889,19 +1027,19 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <img
+            <ZoomableImage
               v-else
               :src="getPageSrc(pageUrl, index)"
+              :index="index"
               :alt="`Страница ${index + 1}`"
-              class="w-full h-auto block"
-              loading="lazy"
-              decoding="async"
               @error="onImageError(index)"
+              @tap-center="toggleControls"
+              @long-press="handleImageLongPress"
             />
           </div>
         </div>
 
-        <!-- 2. Single Page Mode with 3 Touch Zones -->
+        <!-- 2. Single Page Mode with Pinch & Tap Zones -->
         <div
           v-else
           :class="['mx-auto flex flex-col items-center select-none relative', widthClass]"
@@ -919,38 +1057,18 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <img
+            <ZoomableImage
               v-else
               :src="getPageSrc(pages[currentPageIndex], currentPageIndex)"
+              :index="currentPageIndex"
               :alt="`Страница ${currentPageIndex + 1}`"
-              class="w-full h-auto block pointer-events-none"
-              decoding="async"
+              :is-single-page="true"
               @error="onImageError(currentPageIndex)"
+              @tap-left="prevPage"
+              @tap-center="toggleControls"
+              @tap-right="nextPage"
+              @long-press="handleImageLongPress"
             />
-
-            <!-- 3 Touch Tap Zones for Single Page Mode -->
-            <div class="absolute inset-0 z-10 flex">
-              <!-- Left 30%: Previous Page -->
-              <div
-                class="w-[30%] h-full cursor-w-resize"
-                title="Предыдущая страница"
-                @click="prevPage"
-              ></div>
-
-              <!-- Center 40%: Toggle Controls -->
-              <div
-                class="w-[40%] h-full cursor-pointer"
-                title="Показать/скрыть меню"
-                @click="toggleControls"
-              ></div>
-
-              <!-- Right 30%: Next Page -->
-              <div
-                class="w-[30%] h-full cursor-e-resize"
-                title="Следующая страница"
-                @click="nextPage"
-              ></div>
-            </div>
           </div>
 
           <!-- Page Counter Pill -->
@@ -994,6 +1112,132 @@ onUnmounted(() => {
         </div>
       </div>
     </main>
+
+    <!-- Long Press Context Menu Bottom Sheet / Modal -->
+    <Teleport to="body">
+      <transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="isContextMenuOpen && contextMenuPage"
+          class="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 select-none"
+          @click.self="closeContextMenu"
+        >
+          <div
+            class="w-full max-w-sm bg-zinc-950 sm:bg-zinc-900 border-t sm:border border-zinc-800 rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl space-y-4 pb-safe animate-in slide-in-from-bottom duration-200"
+          >
+            <!-- Mobile drag handle pill -->
+            <div class="w-10 h-1 bg-zinc-700/80 rounded-full mx-auto -mt-1 mb-2 sm:hidden"></div>
+
+            <!-- Header -->
+            <div class="flex items-center justify-between gap-3 border-b border-zinc-800/80 pb-3.5">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-14 rounded-lg overflow-hidden bg-zinc-950 border border-zinc-800 shrink-0">
+                  <img
+                    :src="contextMenuPage.src"
+                    alt="Миниатюра страницы"
+                    class="w-full h-full object-cover object-top"
+                  />
+                </div>
+                <div class="min-w-0">
+                  <h3 class="text-sm sm:text-base font-bold text-white truncate">
+                    Страница {{ contextMenuPage.index + 1 }}
+                  </h3>
+                  <p class="text-xs text-zinc-400 truncate">
+                    Глава {{ chapterInfo?.chapter || '1' }}
+                    <span v-if="parentManga?.title"> · {{ parentManga.title }}</span>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                class="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                title="Закрыть"
+                @click="closeContextMenu"
+              >
+                <X class="w-5 h-5" />
+              </button>
+            </div>
+
+            <!-- 2 Context Actions -->
+            <div class="space-y-2">
+              <!-- Action 1: Reload Image -->
+              <button
+                type="button"
+                class="w-full flex items-center gap-3.5 p-3 sm:p-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 border border-zinc-800 text-left transition-all active:scale-[0.98] cursor-pointer group"
+                @click="reloadContextImage"
+              >
+                <div class="w-10 h-10 rounded-xl bg-zinc-800/90 group-hover:bg-zinc-700 flex items-center justify-center text-zinc-200 shrink-0 border border-zinc-700/60 shadow">
+                  <RotateCw class="w-5 h-5 text-amber-400" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs sm:text-sm font-bold text-zinc-100 group-hover:text-white">
+                    Перезагрузить изображение
+                  </div>
+                  <div class="text-[11px] text-zinc-400">
+                    Очистить кэш и скачать страницу заново
+                  </div>
+                </div>
+              </button>
+
+              <!-- Action 2: Save Image -->
+              <button
+                type="button"
+                :disabled="isSavingImage"
+                class="w-full flex items-center gap-3.5 p-3 sm:p-3.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 border border-zinc-800 text-left transition-all active:scale-[0.98] cursor-pointer group disabled:opacity-50"
+                @click="saveContextImage"
+              >
+                <div class="w-10 h-10 rounded-xl bg-zinc-800/90 group-hover:bg-zinc-700 flex items-center justify-center text-zinc-200 shrink-0 border border-zinc-700/60 shadow">
+                  <SpinnerArrow v-if="isSavingImage" class="w-5 h-5 text-sky-400" />
+                  <Download v-else class="w-5 h-5 text-sky-400" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="text-xs sm:text-sm font-bold text-zinc-100 group-hover:text-white">
+                    {{ isSavingImage ? 'Сохранение...' : 'Сохранить изображение' }}
+                  </div>
+                  <div class="text-[11px] text-zinc-400">
+                    Скачать файл страницы на устройство
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <!-- Cancel Button -->
+            <button
+              type="button"
+              class="w-full py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800/80 text-zinc-400 hover:text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+              @click="closeContextMenu"
+            >
+              Отмена
+            </button>
+          </div>
+        </div>
+      </transition>
+
+      <!-- Floating Toast Notification -->
+      <transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0 translate-y-3 scale-95"
+        enter-to-class="opacity-100 translate-y-0 scale-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100 translate-y-0 scale-100"
+        leave-to-class="opacity-0 translate-y-3 scale-95"
+      >
+        <div
+          v-if="toastMessage"
+          class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] bg-zinc-900/95 text-zinc-100 px-4 py-2.5 rounded-2xl border border-zinc-700/80 shadow-2xl backdrop-blur-md flex items-center gap-2.5 text-xs sm:text-sm font-bold pointer-events-none"
+        >
+          <Check class="w-4 h-4 text-emerald-400 shrink-0" />
+          <span>{{ toastMessage }}</span>
+        </div>
+      </transition>
+    </Teleport>
   </div>
 </template>
 

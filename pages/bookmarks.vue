@@ -154,7 +154,7 @@ const confirmClearHistory = () => {
         <div
           v-for="b in filteredBookmarks"
           :key="b.mangaId"
-          class="group relative flex flex-col bg-zinc-900/40 hover:bg-zinc-900/80 rounded-2xl overflow-hidden border border-zinc-800/80 transition-all shadow-lg"
+          class="group relative flex flex-col bg-zinc-900/40 hover:bg-zinc-900/80 rounded-lg overflow-hidden border border-zinc-800/80 transition-all shadow-lg"
         >
           <NuxtLink :to="`/manga/${b.mangaId}?type=${b.contentType === 'novel' ? 'novel' : 'manga'}`" class="relative aspect-[2/3] w-full overflow-hidden bg-zinc-950">
             <AsyncImage

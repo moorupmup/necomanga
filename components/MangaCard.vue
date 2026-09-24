@@ -59,7 +59,7 @@ const isOnePieceEasterEgg = computed(() => {
 <template>
   <NuxtLink
     :to="`/manga/${manga.id}?type=${contentSourceStore.isRanobe || manga.contentType === 'novel' ? 'novel' : 'manga'}${contentSourceStore.isRanobe || manga.contentType === 'novel' ? `&title=${encodeURIComponent(manga.title || manga.altTitle || '')}` : ''}`"
-    class="group relative block aspect-[2/3] w-full rounded-2xl overflow-hidden border border-zinc-800/80 hover:border-zinc-600/80 transition-all duration-300 bg-zinc-950 select-none active:scale-[0.98] shadow-md hover:shadow-xl shadow-black/40"
+    class="group relative block aspect-[2/3] w-full rounded-lg overflow-hidden border border-zinc-800/80 hover:border-zinc-600/80 transition-all duration-300 bg-zinc-950 select-none active:scale-[0.98] shadow-md hover:shadow-xl shadow-black/40"
   >
     <!-- Full Bleed Poster Image -->
     <AsyncImage

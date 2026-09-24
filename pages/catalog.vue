@@ -504,7 +504,7 @@ onUnmounted(() => {
         <div
           v-for="i in 16"
           :key="i"
-          class="relative aspect-[2/3] rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col justify-end p-3 sm:p-5"
+          class="relative aspect-[2/3] rounded-lg overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col justify-end p-3 sm:p-5"
         >
           <div class="space-y-2 relative z-10">
             <div class="h-3.5 bg-zinc-800/80 rounded w-1/3"></div>

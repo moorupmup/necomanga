@@ -16,7 +16,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     public: {
-      appVersion: process.env.VITE_APP_VERSION || '1.1.0',
+      appVersion: process.env.VITE_APP_VERSION || '1.2.0',
       buildCommit: process.env.VITE_APP_COMMIT || '',
       buildTime: process.env.VITE_APP_BUILD_TIME || new Date().toISOString()
     }

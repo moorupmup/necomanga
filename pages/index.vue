@@ -682,15 +682,7 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <div class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8 -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
-        <div
-          v-for="item in featuredItems"
-          :key="item.id"
-          class="w-[140px] sm:w-auto flex-shrink-0 snap-start"
-        >
-          <MangaCard :manga="item" />
-        </div>
-      </div>
+      <MangaSwiper :items="featuredItems" />
     </section>
 
     <!-- Trending Section (В тренде) -->
@@ -709,25 +701,7 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <!-- Skeletons -->
-      <div v-if="isLoadingTrending" class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8 -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
-        <div
-          v-for="i in 8"
-          :key="i"
-          class="w-[140px] sm:w-auto flex-shrink-0 snap-start aspect-[2/3] rounded-2xl bg-zinc-900/40 border border-zinc-800/60 animate-pulse"
-        ></div>
-      </div>
-
-      <!-- Items -->
-      <div v-else class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8 -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
-        <div
-          v-for="item in trendingItems"
-          :key="item.id"
-          class="w-[140px] sm:w-auto flex-shrink-0 snap-start"
-        >
-          <MangaCard :manga="item" />
-        </div>
-      </div>
+      <MangaSwiper :items="trendingItems" :is-loading="isLoadingTrending" />
     </section>
 
     <!-- Popular Today Section (Популярно сегодня) -->
@@ -746,25 +720,7 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <!-- Skeletons -->
-      <div v-if="isLoadingPopularToday" class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8 -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
-        <div
-          v-for="i in 8"
-          :key="i"
-          class="w-[140px] sm:w-auto flex-shrink-0 snap-start aspect-[2/3] rounded-2xl bg-zinc-900/40 border border-zinc-800/60 animate-pulse"
-        ></div>
-      </div>
-
-      <!-- Items -->
-      <div v-else class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8 -mx-3.5 px-3.5 sm:mx-0 sm:px-0">
-        <div
-          v-for="item in popularTodayItems"
-          :key="item.id"
-          class="w-[140px] sm:w-auto flex-shrink-0 snap-start"
-        >
-          <MangaCard :manga="item" />
-        </div>
-      </div>
+      <MangaSwiper :items="popularTodayItems" :is-loading="isLoadingPopularToday" />
     </section>
 
     <!-- Choose Your Manga Section (Выбери свою мангу: двухуровневый селектор + сетка 3 ряда с кнопкой +5 рядов) -->
@@ -850,7 +806,7 @@ onMounted(() => {
           <div
             v-for="i in targetItemCount"
             :key="i"
-            class="relative aspect-[2/3] rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col justify-end p-2 sm:p-4 animate-pulse"
+            class="relative aspect-[2/3] rounded-lg overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col justify-end p-2 sm:p-4 animate-pulse"
           >
             <div class="space-y-1.5 relative z-10">
               <div class="h-3 bg-zinc-800/80 rounded w-1/3"></div>
@@ -925,7 +881,7 @@ onMounted(() => {
         <div
           v-for="i in 16"
           :key="i"
-          class="relative aspect-[2/3] rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col justify-end p-3 sm:p-5"
+          class="relative aspect-[2/3] rounded-lg overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col justify-end p-3 sm:p-5"
         >
           <div class="space-y-2 relative z-10">
             <div class="h-3.5 bg-zinc-800/80 rounded w-1/3"></div>
@@ -962,7 +918,7 @@ onMounted(() => {
           <div
             v-for="i in 8"
             :key="i"
-            class="relative aspect-[2/3] rounded-2xl overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col justify-end p-3 sm:p-5"
+            class="relative aspect-[2/3] rounded-lg overflow-hidden border border-zinc-800/60 bg-zinc-900/40 flex flex-col justify-end p-3 sm:p-5"
           >
             <div class="space-y-2 relative z-10">
               <div class="h-3.5 bg-zinc-800/80 rounded w-1/3"></div>
