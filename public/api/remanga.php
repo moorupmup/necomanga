@@ -88,19 +88,23 @@ if ($route === 'img' || str_starts_with($route, 'img?')) {
 }
 
 // 2. Determine target API endpoint
+$rawQuery = $_SERVER['QUERY_STRING'] ?? '';
+$rawQuery = preg_replace('/(^|&)_route=[^&]*/', '', $rawQuery);
+$rawQuery = ltrim($rawQuery, '&');
+$queryString = $rawQuery !== '' ? '?' . $rawQuery : '';
+
 $targetUrl = '';
-$queryParams = $_GET;
 
 if ($route === 'catalog') {
-    $targetUrl = 'https://api.remanga.org/api/search/catalog/?' . http_build_query($queryParams);
+    $targetUrl = 'https://api.remanga.org/api/search/catalog/' . $queryString;
 } elseif ($route === 'top' || $route === 'titles/top' || $route === 'v2/titles/top') {
-    $targetUrl = 'https://api.remanga.org/api/v2/titles/top/?' . http_build_query($queryParams);
+    $targetUrl = 'https://api.remanga.org/api/v2/titles/top/' . $queryString;
 } elseif ($route === 'search') {
-    $targetUrl = 'https://api.remanga.org/api/v2/search/?' . http_build_query($queryParams);
+    $targetUrl = 'https://api.remanga.org/api/v2/search/' . $queryString;
 } elseif ($route === 'forms') {
-    $targetUrl = 'https://api.remanga.org/api/forms/titles/?' . http_build_query($queryParams);
+    $targetUrl = 'https://api.remanga.org/api/forms/titles/' . $queryString;
 } elseif ($route === 'chapters') {
-    $targetUrl = 'https://api.remanga.org/api/titles/chapters/?' . http_build_query($queryParams);
+    $targetUrl = 'https://api.remanga.org/api/titles/chapters/' . $queryString;
 } elseif (preg_match('#^chapter/(\d+)#', $route, $m)) {
     $targetUrl = 'https://api.remanga.org/api/v2/titles/chapters/' . $m[1] . '/';
 } elseif (preg_match('#^title/([^/?]+)#', $route, $m)) {
@@ -120,7 +124,8 @@ curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 curl_setopt($ch, CURLOPT_REFERER, 'https://remanga.org/');
 curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+curl_setopt($ch, CURLOPT_TIMEOUT, 12);
 
 $response = curl_exec($ch);
 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);

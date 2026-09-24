@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, X, Loader2 } from 'lucide-vue-next'
 import { useReManga, type MangaTitle } from '~/composables/useReManga'
+import { useContentSourceStore } from '~/stores/contentSource'
 
 const router = useRouter()
 const { searchManga } = useReManga()
+const contentSourceStore = useContentSourceStore()
 
 const query = ref('')
 const results = ref<MangaTitle[]>([])
@@ -66,11 +68,20 @@ const clearSearch = () => {
   isOpen.value = false
 }
 
-const onSelectManga = (id: string) => {
+const onSelectManga = (mangaItem: any) => {
   isOpen.value = false
   query.value = ''
   emit('selected')
-  router.push(`/manga/${id}`)
+  const isNovel = contentSourceStore.isRanobe || (typeof mangaItem === 'object' && mangaItem.contentType === 'novel')
+  const id = typeof mangaItem === 'object' ? (mangaItem.id || mangaItem.dir) : mangaItem
+  const title = typeof mangaItem === 'object' ? (mangaItem.title || mangaItem.altTitle || '') : ''
+  router.push({
+    path: `/manga/${id}`,
+    query: {
+      type: isNovel ? 'novel' : 'manga',
+      ...(title ? { title } : {})
+    }
+  })
 }
 
 if (typeof window !== 'undefined') {
@@ -90,7 +101,7 @@ if (typeof window !== 'undefined') {
       <input
         v-model="query"
         type="text"
-        placeholder="Поиск манги, манхвы, авторов..."
+        :placeholder="contentSourceStore.isRanobe ? 'Поиск ранобэ, новелл, авторов...' : 'Поиск манги, манхвы, авторов...'"
         class="w-full pl-12 pr-11 py-3 text-base rounded-2xl bg-zinc-900/80 hover:bg-zinc-900 focus:bg-zinc-950 text-zinc-100 placeholder-zinc-500 border border-zinc-800 focus:border-zinc-600 focus:outline-none transition-all shadow-inner"
         @focus="isOpen = query.length >= 2"
         @keydown.enter="submitSearch"
@@ -120,7 +131,7 @@ if (typeof window !== 'undefined') {
           v-for="manga in results"
           :key="manga.id"
           class="flex items-center gap-4 p-2.5 rounded-xl hover:bg-zinc-900 active:bg-zinc-900 active:scale-[0.99] cursor-pointer transition-all"
-          @click="onSelectManga(manga.id)"
+          @click="onSelectManga(manga)"
         >
           <img
             :src="manga.coverUrlSmall || manga.coverUrl"

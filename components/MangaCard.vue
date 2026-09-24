@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { Bookmark, Star } from 'lucide-vue-next'
 import type { MangaTitle } from '~/composables/useReManga'
 import { useBookmarksStore, BOOKMARK_LABELS } from '~/stores/bookmarks'
+import { useContentSourceStore } from '~/stores/contentSource'
 import AsyncImage from '~/components/AsyncImage.vue'
 
 const props = defineProps<{
@@ -10,6 +11,7 @@ const props = defineProps<{
 }>()
 
 const bookmarksStore = useBookmarksStore()
+const contentSourceStore = useContentSourceStore()
 const bookmark = computed(() => bookmarksStore.getBookmark(props.manga.id))
 
 const originLabel = computed(() => {
@@ -17,6 +19,7 @@ const originLabel = computed(() => {
   if (props.manga.originalLanguage === 'ja') return 'Манга'
   if (props.manga.originalLanguage === 'ko') return 'Манхва'
   if (props.manga.originalLanguage === 'zh') return 'Маньхуа'
+  if (contentSourceStore.isRanobe || props.manga.contentType === 'novel') return 'Ранобэ'
   return null
 })
 
@@ -55,7 +58,7 @@ const isOnePieceEasterEgg = computed(() => {
 
 <template>
   <NuxtLink
-    :to="`/manga/${manga.id}`"
+    :to="`/manga/${manga.id}?type=${contentSourceStore.isRanobe || manga.contentType === 'novel' ? 'novel' : 'manga'}${contentSourceStore.isRanobe || manga.contentType === 'novel' ? `&title=${encodeURIComponent(manga.title || manga.altTitle || '')}` : ''}`"
     class="group relative block aspect-[2/3] w-full rounded-2xl overflow-hidden border border-zinc-800/80 hover:border-zinc-600/80 transition-all duration-300 bg-zinc-950 select-none active:scale-[0.98] shadow-md hover:shadow-xl shadow-black/40"
   >
     <!-- Full Bleed Poster Image -->
@@ -85,9 +88,9 @@ const isOnePieceEasterEgg = computed(() => {
         <!-- Rating badge -->
         <span
           v-if="manga.avgRating && parseFloat(manga.avgRating) > 0"
-          class="glass-badge inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-xs font-bold rounded sm:rounded-lg text-amber-400 shadow-sm shrink-0 whitespace-nowrap"
+          :class="['glass-badge inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-xs font-bold rounded sm:rounded-lg shadow-sm shrink-0 whitespace-nowrap', contentSourceStore.isRanobe ? 'text-blue-400' : 'text-amber-400']"
         >
-          <Star class="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5 fill-amber-400 text-amber-400" />
+          <Star :class="['w-2.5 h-2.5 sm:w-3.5 sm:h-3.5', contentSourceStore.isRanobe ? 'fill-blue-400 text-blue-400' : 'fill-amber-400 text-amber-400']" />
           <span>{{ manga.avgRating }}</span>
         </span>
 

@@ -8,10 +8,16 @@ $publicDir = __DIR__ . '/.output/public';
 
 $uri = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 
-// ReManga API & Image Streaming Gateway
+// ReManga & ReNovels API & Image Streaming Gateways
 if (str_starts_with($uri, '/api/remanga/')) {
     require_once __DIR__ . '/proxy.php';
     handleReMangaProxy($uri);
+    exit;
+}
+
+if (str_starts_with($uri, '/api/renovels/')) {
+    require_once __DIR__ . '/proxy.php';
+    handleReNovelsProxy($uri);
     exit;
 }
 

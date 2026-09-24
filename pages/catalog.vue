@@ -11,6 +11,7 @@ import {
   SlidersHorizontal
 } from 'lucide-vue-next'
 import { useReManga, type MangaTitle, type ReMangaGenre } from '~/composables/useReManga'
+import { useContentSourceStore } from '~/stores/contentSource'
 import { registerBackHandler } from '~/composables/useBackButton'
 import MangaCard from '~/components/MangaCard.vue'
 import SpinnerArrow from '~/components/SpinnerArrow.vue'
@@ -18,6 +19,7 @@ import SpinnerArrow from '~/components/SpinnerArrow.vue'
 const route = useRoute()
 const router = useRouter()
 const { getMangaList, searchManga, getFilters } = useReManga()
+const contentSourceStore = useContentSourceStore()
 
 // Route query params handling
 const getInitialType = (): string => {
@@ -44,13 +46,26 @@ const hasMore = ref(true)
 const totalCount = ref(0)
 const isFilterSheetOpen = ref(false)
 
-const types = [
-  { id: 'all', label: 'Все' },
-  { id: '2', label: 'Манхва' },
-  { id: '3', label: 'Маньхуа' },
-  { id: '1', label: 'Манга' },
-  { id: '5', label: 'Рукомикс' }
-]
+const types = computed(() => {
+  if (contentSourceStore.isRanobe) {
+    return [
+      { id: 'all', label: 'Все' },
+      { id: '10', label: 'Корея' },
+      { id: '11', label: 'Китай' },
+      { id: '9', label: 'Япония' },
+      { id: '8', label: 'Авторское' },
+      { id: '12', label: 'Запад' },
+      { id: '13', label: 'Фанфики' }
+    ]
+  }
+  return [
+    { id: 'all', label: 'Все' },
+    { id: '2', label: 'Манхва' },
+    { id: '3', label: 'Маньхуа' },
+    { id: '1', label: 'Манга' },
+    { id: '5', label: 'Рукомикс' }
+  ]
+})
 
 const sortOptions = [
   { id: '-votes', label: 'По популярности' },
@@ -174,6 +189,22 @@ watch(() => route.query, (newQ) => {
   }
 })
 
+const fetchFilterOptions = async () => {
+  try {
+    const filters = await getFilters()
+    availableGenres.value = filters.genres.slice(0, 24)
+  } catch (e) {
+    console.error('Failed to load filters', e)
+  }
+}
+
+watch(() => contentSourceStore.mode, async () => {
+  selectedType.value = 'all'
+  selectedGenres.value = []
+  await fetchFilterOptions()
+  loadManga(true)
+})
+
 let unregisterBack: (() => void) | null = null
 
 onMounted(async () => {
@@ -185,12 +216,7 @@ onMounted(async () => {
     return false
   })
 
-  try {
-    const filters = await getFilters()
-    availableGenres.value = filters.genres.slice(0, 24)
-  } catch (e) {
-    console.error('Failed to load filters', e)
-  }
+  await fetchFilterOptions()
   loadManga(true)
 })
 
@@ -234,7 +260,7 @@ onUnmounted(() => {
           <span>Фильтры</span>
           <span
             v-if="activeFilterCount > 0"
-            class="min-w-[18px] h-[18px] px-1 text-[10px] font-black rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center leading-none ml-0.5"
+            :class="['min-w-[18px] h-[18px] px-1 text-[10px] font-black rounded-full flex items-center justify-center leading-none ml-0.5', contentSourceStore.isRanobe ? 'bg-blue-400 text-zinc-950' : 'bg-amber-400 text-zinc-950']"
           >
             {{ activeFilterCount }}
           </span>
@@ -462,10 +488,10 @@ onUnmounted(() => {
           <div class="pt-3 sticky bottom-0 bg-gradient-to-t from-zinc-950 via-zinc-950 to-transparent pb-1 -mx-5 px-5">
             <button
               type="button"
-              class="w-full min-h-[48px] py-3.5 rounded-2xl bg-amber-400 active:bg-amber-300 text-zinc-950 font-black text-sm shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-all"
+              :class="['w-full min-h-[48px] py-3.5 rounded-2xl font-black text-sm active:scale-[0.98] transition-all', contentSourceStore.accentButton]"
               @click="isFilterSheetOpen = false"
             >
-              Применить ({{ totalCount.toLocaleString('ru-RU') }} тайтлов)
+              Применить ({{ totalCount.toLocaleString('ru-RU') }} {{ contentSourceStore.isRanobe ? 'ранобэ' : 'тайтлов' }})
             </button>
           </div>
         </div>

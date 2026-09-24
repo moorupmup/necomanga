@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useBookmarksStore } from '~/stores/bookmarks'
 import { useHistoryStore } from '~/stores/history'
+import { useContentSourceStore } from '~/stores/contentSource'
 import AnimatedFlame from '~/components/icons/AnimatedFlame.vue'
 import AnimatedCompass from '~/components/icons/AnimatedCompass.vue'
 import AnimatedBookmark from '~/components/icons/AnimatedBookmark.vue'
@@ -11,6 +12,7 @@ import AnimatedHistory from '~/components/icons/AnimatedHistory.vue'
 const route = useRoute()
 const bookmarksStore = useBookmarksStore()
 const historyStore = useHistoryStore()
+const contentSourceStore = useContentSourceStore()
 
 const flameRef = ref<InstanceType<typeof AnimatedFlame> | null>(null)
 const compassRef = ref<InstanceType<typeof AnimatedCompass> | null>(null)
@@ -43,19 +45,20 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
       <NuxtLink
         to="/"
         class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
-        :class="isHomeActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
+        :class="isHomeActive ? [contentSourceStore.accentText, 'font-bold'] : 'text-zinc-400 hover:text-zinc-200 font-medium'"
         @click="triggerIcon('home')"
       >
         <AnimatedFlame
           ref="flameRef"
           :size="20"
           :active="isHomeActive"
-          :class="isHomeActive ? 'text-amber-400' : 'text-zinc-400'"
+          :class="isHomeActive ? contentSourceStore.accentText : 'text-zinc-400'"
         />
         <span class="text-[11px] leading-tight">Главная</span>
         <span
           v-if="isHomeActive"
-          class="absolute -bottom-1 w-5 h-0.5 rounded-full bg-amber-400"
+          class="absolute -bottom-1 w-5 h-0.5 rounded-full"
+          :class="contentSourceStore.accentBg"
         ></span>
       </NuxtLink>
 
@@ -63,19 +66,20 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
       <NuxtLink
         to="/catalog"
         class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
-        :class="isCatalogActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
+        :class="isCatalogActive ? [contentSourceStore.accentText, 'font-bold'] : 'text-zinc-400 hover:text-zinc-200 font-medium'"
         @click="triggerIcon('catalog')"
       >
         <AnimatedCompass
           ref="compassRef"
           :size="20"
           :active="isCatalogActive"
-          :class="isCatalogActive ? 'text-amber-400' : 'text-zinc-400'"
+          :class="isCatalogActive ? contentSourceStore.accentText : 'text-zinc-400'"
         />
         <span class="text-[11px] leading-tight">Каталог</span>
         <span
           v-if="isCatalogActive"
-          class="absolute -bottom-1 w-5 h-0.5 rounded-full bg-amber-400"
+          class="absolute -bottom-1 w-5 h-0.5 rounded-full"
+          :class="contentSourceStore.accentBg"
         ></span>
       </NuxtLink>
 
@@ -83,7 +87,7 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
       <NuxtLink
         to="/bookmarks"
         class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
-        :class="isBookmarksActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
+        :class="isBookmarksActive ? [contentSourceStore.accentText, 'font-bold'] : 'text-zinc-400 hover:text-zinc-200 font-medium'"
         @click="triggerIcon('bookmarks')"
       >
         <div class="relative">
@@ -91,11 +95,12 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
             ref="bookmarkRef"
             :size="20"
             :active="isBookmarksActive"
-            :class="isBookmarksActive ? 'text-amber-400' : 'text-zinc-400'"
+            :class="isBookmarksActive ? contentSourceStore.accentText : 'text-zinc-400'"
           />
           <span
             v-if="bookmarksCount > 0"
-            class="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 text-[9px] font-black rounded-full bg-amber-400 text-zinc-950 flex items-center justify-center leading-none"
+            class="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 text-[9px] font-black rounded-full text-zinc-950 flex items-center justify-center leading-none"
+            :class="contentSourceStore.accentBg"
           >
             {{ bookmarksCount > 99 ? '99+' : bookmarksCount }}
           </span>
@@ -103,7 +108,8 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
         <span class="text-[11px] leading-tight">Закладки</span>
         <span
           v-if="isBookmarksActive"
-          class="absolute -bottom-1 w-5 h-0.5 rounded-full bg-amber-400"
+          class="absolute -bottom-1 w-5 h-0.5 rounded-full"
+          :class="contentSourceStore.accentBg"
         ></span>
       </NuxtLink>
 
@@ -111,7 +117,7 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
       <NuxtLink
         to="/bookmarks?tab=history"
         class="flex flex-col items-center justify-center gap-1 py-1 px-2 rounded-xl transition-all active:scale-90 relative"
-        :class="isHistoryActive ? 'text-amber-400 font-bold' : 'text-zinc-400 hover:text-zinc-200 font-medium'"
+        :class="isHistoryActive ? [contentSourceStore.accentText, 'font-bold'] : 'text-zinc-400 hover:text-zinc-200 font-medium'"
         @click="triggerIcon('history')"
       >
         <div class="relative">
@@ -119,7 +125,7 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
             ref="historyRef"
             :size="20"
             :active="isHistoryActive"
-            :class="isHistoryActive ? 'text-amber-400' : 'text-zinc-400'"
+            :class="isHistoryActive ? contentSourceStore.accentText : 'text-zinc-400'"
           />
           <span
             v-if="historyCount > 0"
@@ -131,7 +137,8 @@ const isHistoryActive = computed(() => route.path === '/bookmarks' && route.quer
         <span class="text-[11px] leading-tight">История</span>
         <span
           v-if="isHistoryActive"
-          class="absolute -bottom-1 w-5 h-0.5 rounded-full bg-amber-400"
+          class="absolute -bottom-1 w-5 h-0.5 rounded-full"
+          :class="contentSourceStore.accentBg"
         ></span>
       </NuxtLink>
     </div>

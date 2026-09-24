@@ -14,12 +14,14 @@ import {
   type BookmarkStatus
 } from '~/stores/bookmarks'
 import { useHistoryStore } from '~/stores/history'
+import { useContentSourceStore } from '~/stores/contentSource'
 import { registerBackHandler } from '~/composables/useBackButton'
 import AsyncImage from '~/components/AsyncImage.vue'
 
 const route = useRoute()
 const bookmarksStore = useBookmarksStore()
 const historyStore = useHistoryStore()
+const contentSourceStore = useContentSourceStore()
 
 const activeTab = ref<'bookmarks' | 'history'>((route.query.tab as any) === 'history' ? 'history' : 'bookmarks')
 const activeStatusFilter = ref<string>('all')
@@ -154,27 +156,30 @@ const confirmClearHistory = () => {
           :key="b.mangaId"
           class="group relative flex flex-col bg-zinc-900/40 hover:bg-zinc-900/80 rounded-2xl overflow-hidden border border-zinc-800/80 transition-all shadow-lg"
         >
-          <NuxtLink :to="`/manga/${b.mangaId}`" class="relative aspect-[2/3] w-full overflow-hidden bg-zinc-950">
+          <NuxtLink :to="`/manga/${b.mangaId}?type=${b.contentType === 'novel' ? 'novel' : 'manga'}`" class="relative aspect-[2/3] w-full overflow-hidden bg-zinc-950">
             <AsyncImage
               :src="b.coverUrl"
               :alt="b.title"
               aspect-class="aspect-[2/3]"
               img-class="group-hover:scale-105"
             />
-            <div class="absolute top-2 sm:top-3 left-2 sm:left-3">
+            <div class="absolute top-2 sm:top-3 left-2 sm:left-3 flex items-center gap-1">
               <span class="glass-badge inline-flex items-center px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-semibold rounded-md sm:rounded-lg text-zinc-100 shadow-sm">
                 {{ BOOKMARK_LABELS[b.status] }}
+              </span>
+              <span v-if="b.contentType === 'novel'" class="glass-badge inline-flex items-center px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[11px] font-bold rounded-md sm:rounded-lg text-blue-400 bg-blue-950/60 border border-blue-500/40 shadow-sm">
+                Ранобэ
               </span>
             </div>
           </NuxtLink>
 
           <div class="p-2.5 sm:p-4 flex flex-col justify-between flex-1 gap-2 sm:gap-3 bg-zinc-900/20">
-            <NuxtLink :to="`/manga/${b.mangaId}`" class="font-bold text-xs sm:text-base text-zinc-100 hover:text-white line-clamp-2 leading-snug">
+            <NuxtLink :to="`/manga/${b.mangaId}?type=${b.contentType === 'novel' ? 'novel' : 'manga'}`" class="font-bold text-xs sm:text-base text-zinc-100 hover:text-white line-clamp-2 leading-snug">
               {{ b.title }}
             </NuxtLink>
 
             <div class="flex items-center justify-between pt-1.5 sm:pt-2.5 border-t border-zinc-800/60">
-              <NuxtLink :to="`/manga/${b.mangaId}`" class="text-xs sm:text-sm text-zinc-300 hover:text-white font-bold py-1">
+              <NuxtLink :to="`/manga/${b.mangaId}?type=${b.contentType === 'novel' ? 'novel' : 'manga'}`" class="text-xs sm:text-sm text-zinc-300 hover:text-white font-bold py-1">
                 Открыть
               </NuxtLink>
               <button
@@ -194,7 +199,7 @@ const confirmClearHistory = () => {
         <Bookmark class="w-12 h-12 sm:w-14 sm:h-14 mx-auto opacity-40 text-zinc-400" />
         <p class="font-bold text-base sm:text-lg text-zinc-300">В этой категории пока нет закладок</p>
         <NuxtLink to="/catalog" class="inline-block text-xs sm:text-base font-bold text-zinc-200 hover:underline pt-2">
-          Перейти в каталог манги →
+          {{ contentSourceStore.isRanobe ? 'Перейти в каталог ранобэ →' : 'Перейти в каталог манги →' }}
         </NuxtLink>
       </div>
     </div>
@@ -214,9 +219,14 @@ const confirmClearHistory = () => {
               class="w-14 h-20 sm:w-20 sm:h-28 object-cover rounded-xl bg-zinc-900 flex-shrink-0 border border-zinc-800"
             />
             <div class="space-y-1 min-w-0">
-              <NuxtLink :to="`/manga/${item.mangaId}`" class="font-bold text-sm sm:text-xl text-zinc-100 hover:text-white leading-snug truncate block">
-                {{ item.mangaTitle }}
-              </NuxtLink>
+              <div class="flex items-center gap-2">
+                <NuxtLink :to="`/manga/${item.mangaId}?type=${item.contentType === 'novel' ? 'novel' : 'manga'}`" class="font-bold text-sm sm:text-xl text-zinc-100 hover:text-white leading-snug truncate block">
+                  {{ item.mangaTitle }}
+                </NuxtLink>
+                <span v-if="item.contentType === 'novel'" class="px-1.5 py-0.5 text-[10px] font-bold rounded bg-blue-500/20 text-blue-400 border border-blue-500/30 shrink-0">
+                  Ранобэ
+                </span>
+              </div>
               <div class="text-xs sm:text-base text-zinc-300 flex items-center gap-1.5 sm:gap-2 font-medium">
                 <span class="text-white font-bold">Глава {{ item.chapterNumber }}</span>
                 <span v-if="item.chapterTitle" class="text-zinc-400 truncate text-xs sm:text-sm">— {{ item.chapterTitle }}</span>
@@ -230,8 +240,13 @@ const confirmClearHistory = () => {
 
           <div class="flex items-center justify-end sm:self-center pt-1 sm:pt-0">
             <NuxtLink
-              :to="`/read/${item.chapterId}`"
-              class="w-full sm:w-auto min-h-[44px] px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-amber-400 active:bg-amber-300 text-zinc-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10 transition-all active:scale-[0.98]"
+              :to="`/read/${item.chapterId}?dir=${item.mangaId}&type=${item.contentType === 'novel' ? 'novel' : 'manga'}`"
+              :class="[
+                'w-full sm:w-auto min-h-[44px] px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all active:scale-[0.98]',
+                item.contentType === 'novel'
+                  ? 'bg-blue-500 hover:bg-blue-400 active:bg-blue-400 text-white shadow-blue-500/20'
+                  : 'bg-amber-400 active:bg-amber-300 text-zinc-950 shadow-amber-500/10'
+              ]"
             >
               <BookOpen class="w-4 h-4" />
               <span>Продолжить</span>

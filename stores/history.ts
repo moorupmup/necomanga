@@ -11,6 +11,7 @@ export interface HistoryItem {
   chapterTitle?: string
   pageIndex?: number
   timestamp: number
+  contentType?: 'manga' | 'novel'
 }
 
 export const useHistoryStore = defineStore('history', () => {

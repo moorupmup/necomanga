@@ -21,6 +21,7 @@ import {
 import { useReManga, isNativePlatform } from '~/composables/useReManga'
 import { useReaderSettingsStore } from '~/stores/readerSettings'
 import { useHistoryStore } from '~/stores/history'
+import { useContentSourceStore } from '~/stores/contentSource'
 import { registerBackHandler } from '~/composables/useBackButton'
 import SpinnerArrow from '~/components/SpinnerArrow.vue'
 
@@ -32,6 +33,7 @@ const mangaDir = computed(() => (route.query.dir as string) || '')
 const { getChapterPages, getMangaById, getAdjacentChapters } = useReManga()
 const readerSettings = useReaderSettingsStore()
 const historyStore = useHistoryStore()
+const contentSourceStore = useContentSourceStore()
 
 const isLoading = ref(true)
 const error = ref<string | null>(null)
@@ -43,6 +45,64 @@ const parentManga = ref<any>(null)
 const pages = ref<string[]>([])
 const prevChapter = ref<any>(null)
 const nextChapter = ref<any>(null)
+
+const isNovelChapter = computed(() => {
+  if (chapterInfo.value?.isNovel !== undefined) {
+    return chapterInfo.value.isNovel
+  }
+  return Boolean(
+    chapterInfo.value?.content ||
+    chapterInfo.value?.contentType === 'book' ||
+    route.query.type === 'novel'
+  )
+})
+
+const cleanNovelHtml = (html?: string) => {
+  if (!html) return ''
+  return html
+    // 1. Rewrite media URLs to proxy
+    .replace(/src="(https?:\/\/[^"]+|\/media\/[^"]+)"/g, (match, src) => {
+      let fullUrl = src
+      if (fullUrl.startsWith('/media/')) {
+        fullUrl = `https://renovels.org${fullUrl}`
+      }
+      return `src="${wrapProxyImageUrl(fullUrl, true)}"`
+    })
+    // 2. Remove empty paragraphs containing only <br>, &nbsp;, whitespace, or invisible characters
+    .replace(/<p\b[^>]*>(?:\s|&nbsp;|<br\s*\/?>|\u00A0|\u200B|\uFEFF)*<\/p>/gi, '')
+    // 3. Remove leading and trailing <br> tags within paragraphs
+    .replace(/(<p\b[^>]*>)(?:\s*<br\s*\/?>\s*)+/gi, '$1')
+    .replace(/(?:\s*<br\s*\/?>\s*)+(<\/p>)/gi, '$1')
+    // 4. Collapse multiple consecutive <br> inside paragraphs to at most one <br>
+    .replace(/(?:<br\s*\/?>\s*){2,}/gi, '<br/>')
+}
+
+const novelThemeClasses = computed(() => {
+  switch (readerSettings.novelTheme) {
+    case 'black':
+      return { bg: 'bg-black', text: 'text-zinc-300', title: 'text-white', border: 'border-zinc-900', card: 'bg-zinc-950' }
+    case 'sepia':
+      return { bg: 'bg-[#fbf0d9]', text: 'text-[#2e261f]', title: 'text-[#1c150e]', border: 'border-[#ebdcc0]', card: 'bg-[#f4e6ca]' }
+    case 'light':
+      return { bg: 'bg-[#f8f9fa]', text: 'text-zinc-800', title: 'text-zinc-950', border: 'border-zinc-200', card: 'bg-white' }
+    case 'dark':
+    default:
+      return { bg: 'bg-[#090a0f]', text: 'text-zinc-300', title: 'text-zinc-100', border: 'border-zinc-800/60', card: 'bg-zinc-900/60' }
+  }
+})
+
+const novelContentStyle = computed(() => {
+  const lhMap = {
+    normal: '1.6',
+    relaxed: '1.85',
+    loose: '2.15'
+  }
+  return {
+    fontSize: `${readerSettings.novelFontSize}px`,
+    lineHeight: lhMap[readerSettings.novelLineHeight] || '1.85',
+    fontFamily: readerSettings.novelFontFamily === 'serif' ? 'Georgia, Cambria, "Times New Roman", Times, serif' : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+  }
+})
 const retryKeys = ref<Record<number, number>>({})
 
 const getPageSrc = (originalUrl: string, index: number) => {
@@ -76,6 +136,12 @@ const widthClass = computed(() => {
   return 'max-w-3xl'
 })
 
+if (route.query.type === 'novel' && !contentSourceStore.isRanobe) {
+  contentSourceStore.setMode('ranobe')
+} else if (route.query.type === 'manga' && contentSourceStore.isRanobe) {
+  contentSourceStore.setMode('manga')
+}
+
 const loadChapterData = async () => {
   isLoading.value = true
   error.value = null
@@ -86,16 +152,24 @@ const loadChapterData = async () => {
   nextChapter.value = null
 
   try {
-    const chapterData = await getChapterPages(chapterId.value)
+    const preferNovel = route.query.type === 'novel' ? true : (route.query.type === 'manga' ? false : undefined)
+    const chapterData = await getChapterPages(chapterId.value, preferNovel)
     chapterInfo.value = chapterData
     pages.value = chapterData.pages
     prevChapter.value = chapterData.previous
     nextChapter.value = chapterData.next
 
+    // Automatically synchronize store with actual chapter mode
+    if (chapterData.isNovel && !contentSourceStore.isRanobe) {
+      contentSourceStore.setMode('ranobe')
+    } else if (!chapterData.isNovel && contentSourceStore.isRanobe) {
+      contentSourceStore.setMode('manga')
+    }
+
     // Asynchronously resolve adjacent chapters (prev & next) without blocking page render
     const branchId = chapterData.branchId
     if (branchId) {
-      getAdjacentChapters(branchId, chapterData.id).then(({ prev, next }) => {
+      getAdjacentChapters(branchId, chapterData.id, chapterData.isNovel).then(({ prev, next }) => {
         if (!prevChapter.value && prev) prevChapter.value = prev
         if (!nextChapter.value && next) nextChapter.value = next
       }).catch(err => {
@@ -106,7 +180,7 @@ const loadChapterData = async () => {
     // If mangaDir is known, load title info & record progress
     if (mangaDir.value) {
       try {
-        const manga = await getMangaById(mangaDir.value)
+        const manga = await getMangaById(mangaDir.value, '', chapterData.isNovel)
         parentManga.value = manga
 
         historyStore.recordProgress({
@@ -116,12 +190,13 @@ const loadChapterData = async () => {
           chapterId: chapterData.id,
           chapterNumber: chapterData.chapter || '0',
           volumeNumber: String(chapterData.tome || '1'),
-          chapterTitle: chapterData.name
+          chapterTitle: chapterData.name,
+          contentType: chapterData.isNovel ? 'novel' : 'manga'
         })
 
         // Fallback for adjacent chapters if chapterData didn't have branchId
         if (!branchId && manga.branches?.[0]?.id) {
-          getAdjacentChapters(manga.branches[0].id, chapterData.id).then(({ prev, next }) => {
+          getAdjacentChapters(manga.branches[0].id, chapterData.id, chapterData.isNovel).then(({ prev, next }) => {
             if (!prevChapter.value && prev) prevChapter.value = prev
             if (!nextChapter.value && next) nextChapter.value = next
           }).catch(e => {
@@ -141,7 +216,9 @@ const loadChapterData = async () => {
 
 const goToChapter = (id: string) => {
   const dir = mangaDir.value || parentManga.value?.id || ''
-  const query = dir ? { dir } : {}
+  const query: Record<string, string> = {}
+  if (dir) query.dir = dir
+  query.type = isNovelChapter.value ? 'novel' : 'manga'
   router.push({ path: `/read/${id}`, query })
 }
 
@@ -237,7 +314,7 @@ onUnmounted(() => {
       <!-- Left: Back Button & Titles -->
       <div class="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
         <NuxtLink
-          :to="parentManga ? `/manga/${parentManga.id}` : (mangaDir ? `/manga/${mangaDir}` : '/catalog')"
+          :to="parentManga ? `/manga/${parentManga.id}?type=${isNovelChapter ? 'novel' : 'manga'}` : (mangaDir ? `/manga/${mangaDir}?type=${isNovelChapter ? 'novel' : 'manga'}` : '/catalog')"
           class="p-2 sm:p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 flex-shrink-0 transition-colors"
           title="Вернуться к тайтлу"
         >
@@ -246,7 +323,7 @@ onUnmounted(() => {
 
         <div class="min-w-0">
           <h2 class="text-xs sm:text-base font-bold truncate text-white">
-            {{ parentManga?.title || 'Чтение манги' }}
+            {{ parentManga?.title || (isNovelChapter ? 'Чтение ранобэ' : 'Чтение манги') }}
           </h2>
           <p class="text-[11px] sm:text-sm text-zinc-400 truncate font-medium">
             Гл. {{ chapterInfo?.chapter || '...' }}
@@ -323,38 +400,123 @@ onUnmounted(() => {
           v-if="isSettingsOpen"
           class="hidden sm:block absolute right-0 top-full mt-2 w-80 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl p-5 z-50 text-sm space-y-5"
         >
-          <!-- Mode (Webtoon / Single) -->
-          <div>
-            <label class="block text-zinc-300 font-bold mb-2.5">Режим чтения</label>
-            <div class="grid grid-cols-2 gap-2 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800">
-              <button
-                type="button"
-                :class="[
-                  'py-2.5 px-3 rounded-lg font-bold text-center transition-colors flex items-center justify-center gap-2',
-                  readerSettings.mode === 'webtoon' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white'
-                ]"
-                @click="readerSettings.setMode('webtoon')"
-              >
-                <Layers class="w-4 h-4" />
-                <span>Лента</span>
-              </button>
-              <button
-                type="button"
-                :class="[
-                  'py-2.5 px-3 rounded-lg font-bold text-center transition-colors flex items-center justify-center gap-2',
-                  readerSettings.mode === 'single' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white'
-                ]"
-                @click="readerSettings.setMode('single')"
-              >
-                <FileText class="w-4 h-4" />
-                <span>Постранично</span>
-              </button>
+          <!-- Novel specific settings -->
+          <template v-if="isNovelChapter">
+            <!-- Font Size -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-zinc-300 font-bold">Размер текста</label>
+                <span class="text-xs font-mono font-bold text-blue-400">{{ readerSettings.novelFontSize }}px</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  class="py-2 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold active:scale-95"
+                  @click="readerSettings.setNovelFontSize(readerSettings.novelFontSize - 2)"
+                >
+                  Меньше (A-)
+                </button>
+                <button
+                  type="button"
+                  class="py-2 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold active:scale-95"
+                  @click="readerSettings.setNovelFontSize(readerSettings.novelFontSize + 2)"
+                >
+                  Больше (A+)
+                </button>
+              </div>
             </div>
-          </div>
 
-          <!-- Reader Width -->
+            <!-- Font Family -->
+            <div>
+              <label class="block text-zinc-300 font-bold mb-2">Шрифт</label>
+              <div class="grid grid-cols-2 gap-2 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 text-xs">
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors', readerSettings.novelFontFamily === 'sans' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white']"
+                  @click="readerSettings.setNovelFontFamily('sans')"
+                >
+                  Без засечек
+                </button>
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold font-serif transition-colors', readerSettings.novelFontFamily === 'serif' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white']"
+                  @click="readerSettings.setNovelFontFamily('serif')"
+                >
+                  С засечками
+                </button>
+              </div>
+            </div>
+
+            <!-- Theme -->
+            <div>
+              <label class="block text-zinc-300 font-bold mb-2">Цветовая тема</label>
+              <div class="grid grid-cols-4 gap-1.5 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 text-xs">
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors', readerSettings.novelTheme === 'dark' ? 'bg-zinc-800 text-white border border-zinc-600' : 'text-zinc-400 hover:text-white']"
+                  @click="readerSettings.setNovelTheme('dark')"
+                >
+                  Тёмная
+                </button>
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors', readerSettings.novelTheme === 'black' ? 'bg-black text-white border border-zinc-700' : 'text-zinc-400 hover:text-white']"
+                  @click="readerSettings.setNovelTheme('black')"
+                >
+                  OLED
+                </button>
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors bg-[#fbf0d9] text-[#2c241b]', readerSettings.novelTheme === 'sepia' ? 'ring-2 ring-amber-500' : '']"
+                  @click="readerSettings.setNovelTheme('sepia')"
+                >
+                  Сепия
+                </button>
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors bg-white text-zinc-900', readerSettings.novelTheme === 'light' ? 'ring-2 ring-blue-500' : '']"
+                  @click="readerSettings.setNovelTheme('light')"
+                >
+                  Светлая
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Manga specific Mode (Webtoon / Single) -->
+          <template v-else>
+            <div>
+              <label class="block text-zinc-300 font-bold mb-2.5">Режим чтения</label>
+              <div class="grid grid-cols-2 gap-2 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800">
+                <button
+                  type="button"
+                  :class="[
+                    'py-2.5 px-3 rounded-lg font-bold text-center transition-colors flex items-center justify-center gap-2',
+                    readerSettings.mode === 'webtoon' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white'
+                  ]"
+                  @click="readerSettings.setMode('webtoon')"
+                >
+                  <Layers class="w-4 h-4" />
+                  <span>Лента</span>
+                </button>
+                <button
+                  type="button"
+                  :class="[
+                    'py-2.5 px-3 rounded-lg font-bold text-center transition-colors flex items-center justify-center gap-2',
+                    readerSettings.mode === 'single' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white'
+                  ]"
+                  @click="readerSettings.setMode('single')"
+                >
+                  <FileText class="w-4 h-4" />
+                  <span>Постранично</span>
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Reader Width (Shared) -->
           <div>
-            <label class="block text-zinc-300 font-bold mb-2.5">Ширина страницы</label>
+            <label class="block text-zinc-300 font-bold mb-2.5">Ширина контента</label>
             <div class="grid grid-cols-3 gap-2 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 text-xs">
               <button
                 type="button"
@@ -421,38 +583,123 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <!-- Mode (Webtoon / Single) -->
-          <div>
-            <label class="block text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Режим чтения</label>
-            <div class="grid grid-cols-2 gap-2 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800">
-              <button
-                type="button"
-                :class="[
-                  'py-2.5 px-3 rounded-lg font-bold text-xs text-center transition-colors flex items-center justify-center gap-2',
-                  readerSettings.mode === 'webtoon' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white'
-                ]"
-                @click="readerSettings.setMode('webtoon')"
-              >
-                <Layers class="w-4 h-4" />
-                <span>Лента (Скролл)</span>
-              </button>
-              <button
-                type="button"
-                :class="[
-                  'py-2.5 px-3 rounded-lg font-bold text-xs text-center transition-colors flex items-center justify-center gap-2',
-                  readerSettings.mode === 'single' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white'
-                ]"
-                @click="readerSettings.setMode('single')"
-              >
-                <FileText class="w-4 h-4" />
-                <span>Постранично</span>
-              </button>
+          <!-- Novel specific settings -->
+          <template v-if="isNovelChapter">
+            <!-- Font Size -->
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <label class="text-xs uppercase tracking-wider text-zinc-400 font-bold">Размер текста</label>
+                <span class="text-xs font-mono font-bold text-blue-400">{{ readerSettings.novelFontSize }}px</span>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  class="py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold active:scale-95"
+                  @click="readerSettings.setNovelFontSize(readerSettings.novelFontSize - 2)"
+                >
+                  Меньше (A-)
+                </button>
+                <button
+                  type="button"
+                  class="py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-bold active:scale-95"
+                  @click="readerSettings.setNovelFontSize(readerSettings.novelFontSize + 2)"
+                >
+                  Больше (A+)
+                </button>
+              </div>
             </div>
-          </div>
 
-          <!-- Reader Width -->
+            <!-- Font Family -->
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Шрифт</label>
+              <div class="grid grid-cols-2 gap-2 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 text-xs">
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors', readerSettings.novelFontFamily === 'sans' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white']"
+                  @click="readerSettings.setNovelFontFamily('sans')"
+                >
+                  Без засечек
+                </button>
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold font-serif transition-colors', readerSettings.novelFontFamily === 'serif' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white']"
+                  @click="readerSettings.setNovelFontFamily('serif')"
+                >
+                  С засечками
+                </button>
+              </div>
+            </div>
+
+            <!-- Theme -->
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Цветовая тема</label>
+              <div class="grid grid-cols-4 gap-1.5 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 text-xs">
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors', readerSettings.novelTheme === 'dark' ? 'bg-zinc-800 text-white border border-zinc-600' : 'text-zinc-400 hover:text-white']"
+                  @click="readerSettings.setNovelTheme('dark')"
+                >
+                  Тёмная
+                </button>
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors', readerSettings.novelTheme === 'black' ? 'bg-black text-white border border-zinc-700' : 'text-zinc-400 hover:text-white']"
+                  @click="readerSettings.setNovelTheme('black')"
+                >
+                  OLED
+                </button>
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors bg-[#fbf0d9] text-[#2c241b]', readerSettings.novelTheme === 'sepia' ? 'ring-2 ring-amber-500' : '']"
+                  @click="readerSettings.setNovelTheme('sepia')"
+                >
+                  Сепия
+                </button>
+                <button
+                  type="button"
+                  :class="['py-2 rounded-lg font-bold transition-colors bg-white text-zinc-900', readerSettings.novelTheme === 'light' ? 'ring-2 ring-blue-500' : '']"
+                  @click="readerSettings.setNovelTheme('light')"
+                >
+                  Светлая
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Manga Mode (Webtoon / Single) -->
+          <template v-else>
+            <div>
+              <label class="block text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Режим чтения</label>
+              <div class="grid grid-cols-2 gap-2 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800">
+                <button
+                  type="button"
+                  :class="[
+                    'py-2.5 px-3 rounded-lg font-bold text-xs text-center transition-colors flex items-center justify-center gap-2',
+                    readerSettings.mode === 'webtoon' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white'
+                  ]"
+                  @click="readerSettings.setMode('webtoon')"
+                >
+                  <Layers class="w-4 h-4" />
+                  <span>Лента (Скролл)</span>
+                </button>
+                <button
+                  type="button"
+                  :class="[
+                    'py-2.5 px-3 rounded-lg font-bold text-xs text-center transition-colors flex items-center justify-center gap-2',
+                    readerSettings.mode === 'single' ? 'bg-zinc-100 text-zinc-950' : 'text-zinc-400 hover:text-white'
+                  ]"
+                  @click="readerSettings.setMode('single')"
+                >
+                  <FileText class="w-4 h-4" />
+                  <span>Постранично</span>
+                </button>
+              </div>
+            </div>
+          </template>
+
+          <!-- Reader Width (Shared) -->
           <div>
-            <label class="block text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Ширина страниц</label>
+            <label class="block text-xs uppercase tracking-wider text-zinc-400 font-bold mb-2">Ширина контента</label>
             <div class="grid grid-cols-3 gap-2 bg-zinc-900 p-1.5 rounded-xl border border-zinc-800 text-xs">
               <button
                 type="button"
@@ -515,7 +762,7 @@ onUnmounted(() => {
               Попробовать снова
             </button>
             <NuxtLink
-              :to="parentManga ? `/manga/${parentManga.id}` : '/catalog'"
+              :to="parentManga ? `/manga/${parentManga.id}?type=${isNovelChapter ? 'novel' : 'manga'}` : '/catalog'"
               class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs sm:text-sm font-bold border border-zinc-800"
             >
               К тайтлу
@@ -525,7 +772,7 @@ onUnmounted(() => {
       </div>
 
       <!-- Paid / Licensed Chapter Notice -->
-      <div v-else-if="chapterInfo?.isPaid || pages.length === 0" class="min-h-[60vh] flex items-center justify-center p-4">
+      <div v-else-if="chapterInfo?.isPaid || (!isNovelChapter && pages.length === 0)" class="min-h-[60vh] flex items-center justify-center p-4">
         <div class="max-w-lg w-full text-center space-y-6 bg-zinc-950 border border-amber-500/30 p-6 sm:p-10 rounded-3xl shadow-2xl">
           <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center mx-auto">
             <Lock class="w-7 h-7 sm:w-8 sm:h-8" />
@@ -533,13 +780,13 @@ onUnmounted(() => {
           <div class="space-y-2">
             <h2 class="text-xl sm:text-2xl font-black text-white">Платная глава</h2>
             <p class="text-xs sm:text-sm text-zinc-300 leading-relaxed">
-              {{ (chapterInfo?.msg || 'Эта глава лицензирована правообладателем или является платной.').replace(/remanga(\.org)?/gi, 'источник') }}
+              {{ (chapterInfo?.msg || 'Эта глава лицензирована правообладателем или является платной.').replace(/remanga(\.org)?/gi, 'источник').replace(/renovels(\.org)?/gi, 'источник') }}
             </p>
           </div>
 
           <div class="flex flex-col sm:flex-row gap-3 justify-center pt-2">
             <a
-              :href="`https://remanga.org/manga/${mangaDir || ''}`"
+              :href="isNovelChapter ? `https://renovels.org/titles/${mangaDir || ''}` : `https://remanga.org/manga/${mangaDir || ''}`"
               target="_blank"
               rel="noopener noreferrer"
               class="px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs sm:text-sm font-black flex items-center justify-center gap-2 transition-colors shadow-lg"
@@ -560,7 +807,64 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Success: Pages rendering -->
+      <!-- Novel Reader Mode -->
+      <div
+        v-else-if="isNovelChapter"
+        :class="['min-h-screen transition-colors duration-300', novelThemeClasses.bg, novelThemeClasses.text]"
+      >
+        <div :class="['mx-auto py-6 sm:py-14 px-4 sm:px-8', widthClass]" @click="toggleControls">
+          <!-- Chapter Title Header -->
+          <div class="mb-8 sm:mb-12 pb-6 border-b text-center space-y-2 select-none" :class="novelThemeClasses.border">
+            <h1 class="text-xl sm:text-3xl font-black tracking-tight" :class="novelThemeClasses.title">
+              {{ parentManga?.title || mangaDir }}
+            </h1>
+            <p class="text-xs sm:text-sm font-bold opacity-75">
+              Том {{ chapterInfo?.tome || 1 }} · Глава {{ chapterInfo?.chapter }}
+              <span v-if="chapterInfo?.name"> — {{ chapterInfo.name }}</span>
+            </p>
+          </div>
+
+          <!-- Novel Body Text -->
+          <div
+            class="novel-content select-text"
+            :style="novelContentStyle"
+            v-html="cleanNovelHtml(chapterInfo?.content)"
+          ></div>
+
+          <!-- Novel Chapter Bottom Navigation -->
+          <div class="mt-12 sm:mt-16 pt-8 border-t flex items-center justify-between gap-3 sm:gap-4 select-none" :class="novelThemeClasses.border">
+            <button
+              type="button"
+              :disabled="!prevChapter"
+              class="flex-1 py-3.5 px-4 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-xs sm:text-sm font-bold flex items-center justify-center gap-2 text-zinc-300 hover:text-white disabled:opacity-25 disabled:pointer-events-none transition-all active:scale-95 shadow-md"
+              @click.stop="prevChapter && goToChapter(prevChapter.id)"
+            >
+              <ChevronLeft class="w-4 h-4" />
+              <span>Предыдущая</span>
+            </button>
+
+            <NuxtLink
+              :to="parentManga ? `/manga/${parentManga.id}?type=${isNovelChapter ? 'novel' : 'manga'}` : (mangaDir ? `/manga/${mangaDir}?type=${isNovelChapter ? 'novel' : 'manga'}` : '/catalog')"
+              class="py-3.5 px-5 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-xs sm:text-sm font-bold flex items-center justify-center text-zinc-300 hover:text-white transition-all active:scale-95 shadow-md"
+              title="Оглавление"
+            >
+              <Layers class="w-4 h-4" />
+            </NuxtLink>
+
+            <button
+              type="button"
+              :disabled="!nextChapter"
+              class="flex-1 py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-black flex items-center justify-center gap-2 disabled:opacity-25 disabled:pointer-events-none transition-all active:scale-95 shadow-lg shadow-blue-600/25"
+              @click.stop="nextChapter && goToChapter(nextChapter.id)"
+            >
+              <span>Следующая</span>
+              <ChevronRight class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manga Pages Rendering -->
       <div v-else>
         <!-- 1. Webtoon Continuous Vertical Scroll Mode -->
         <div
@@ -682,7 +986,7 @@ onUnmounted(() => {
           </div>
 
           <NuxtLink
-            :to="parentManga ? `/manga/${parentManga.id}` : (mangaDir ? `/manga/${mangaDir}` : '/catalog')"
+            :to="parentManga ? `/manga/${parentManga.id}?type=${isNovelChapter ? 'novel' : 'manga'}` : (mangaDir ? `/manga/${mangaDir}?type=${isNovelChapter ? 'novel' : 'manga'}` : '/catalog')"
             class="text-xs sm:text-sm font-bold text-zinc-400 hover:text-white transition-colors"
           >
             ← К списку глав
@@ -692,3 +996,32 @@ onUnmounted(() => {
     </main>
   </div>
 </template>
+
+<style>
+.novel-content p {
+  margin-bottom: 0.9em;
+  text-indent: 1.25em;
+  word-break: break-word;
+}
+.novel-content p:last-child {
+  margin-bottom: 0;
+}
+.novel-content p:empty,
+.novel-content p:has(> br:only-child) {
+  display: none;
+}
+.novel-content strong {
+  font-weight: 700;
+}
+.novel-content em,
+.novel-content i {
+  font-style: italic;
+}
+.novel-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+  margin: 1.5rem auto;
+  display: block;
+}
+</style>

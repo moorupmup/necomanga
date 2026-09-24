@@ -9,12 +9,14 @@ import {
 } from 'lucide-vue-next'
 import { useBookmarksStore } from '~/stores/bookmarks'
 import { useHistoryStore } from '~/stores/history'
+import { useContentSourceStore } from '~/stores/contentSource'
 import { useAppUpdate } from '~/composables/useAppUpdate'
 import { registerBackHandler } from '~/composables/useBackButton'
 import SearchBar from '~/components/SearchBar.vue'
 
 const bookmarksStore = useBookmarksStore()
 const historyStore = useHistoryStore()
+const contentSourceStore = useContentSourceStore()
 const { hasUpdate } = useAppUpdate()
 
 const isMobileSearchOpen = ref(false)
@@ -25,6 +27,24 @@ const historyCount = computed(() => historyStore.history.length)
 const toggleMobileSearch = () => {
   isMobileSearchOpen.value = !isMobileSearchOpen.value
 }
+
+const navLinks = computed(() => {
+  if (contentSourceStore.isRanobe) {
+    return [
+      { label: 'Каталог', to: '/catalog' },
+      { label: 'Корея', to: '/catalog?type=10' },
+      { label: 'Китай', to: '/catalog?type=11' },
+      { label: 'Япония', to: '/catalog?type=9' },
+      { label: 'Авторское', to: '/catalog?type=8' }
+    ]
+  }
+  return [
+    { label: 'Каталог', to: '/catalog' },
+    { label: 'Манхва', to: '/catalog?type=2' },
+    { label: 'Маньхуа', to: '/catalog?type=3' },
+    { label: 'Манга', to: '/catalog?type=1' }
+  ]
+})
 
 let unregisterBack: (() => void) | null = null
 
@@ -49,43 +69,41 @@ onUnmounted(() => {
   <header class="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950 pt-safe select-none">
     <div class="w-full px-3.5 sm:px-8 xl:px-12 h-14 sm:h-20 flex items-center justify-between gap-3 sm:gap-6">
       
-      <!-- Brand Logo -->
-      <div class="flex items-center gap-4 sm:gap-8">
-        <NuxtLink to="/" class="flex items-center group transition-colors py-1 select-none">
-          <span class="tracking-wider font-black text-xl sm:text-3xl text-white group-hover:text-zinc-200 transition-colors">
-            N.ECO<span class="text-amber-400 font-light">MANGA</span>
-          </span>
-        </NuxtLink>
+      <!-- Brand Logo & Mode Switcher -->
+      <div class="flex items-center gap-3 sm:gap-8">
+        <div class="flex items-center gap-2 sm:gap-3">
+          <NuxtLink to="/" class="flex items-center group transition-colors py-1 select-none">
+            <span class="tracking-wider font-black text-xl sm:text-3xl text-white group-hover:text-zinc-200 transition-colors">
+              N.ECO<span :class="contentSourceStore.isRanobe ? 'text-blue-400 font-light' : 'text-amber-400 font-light'">{{ contentSourceStore.isRanobe ? 'RANOBE' : 'MANGA' }}</span>
+            </span>
+          </NuxtLink>
+
+          <!-- Mode Toggle Square Button -->
+          <button
+            type="button"
+            @click="contentSourceStore.toggleMode()"
+            :title="contentSourceStore.isRanobe ? 'Вернуться к манге' : 'Переключиться на ранобэ'"
+            class="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg border text-xs sm:text-sm font-black transition-all duration-300 transform active:scale-90 shadow-sm cursor-pointer select-none"
+            :class="contentSourceStore.isRanobe 
+              ? 'bg-amber-400/10 border-amber-400/60 text-amber-400 hover:bg-amber-400/20 hover:border-amber-400 shadow-amber-500/10' 
+              : 'bg-blue-500/10 border-blue-500/60 text-blue-400 hover:bg-blue-500/20 hover:border-blue-400 shadow-blue-500/10'"
+          >
+            <span>
+              {{ contentSourceStore.isRanobe ? 'M' : 'R' }}
+            </span>
+          </button>
+        </div>
 
         <!-- Desktop Navigation Links -->
         <nav class="hidden md:flex items-center gap-2 text-base font-semibold text-zinc-300">
           <NuxtLink
-            to="/catalog"
+            v-for="link in navLinks"
+            :key="link.to"
+            :to="link.to"
             class="px-4 py-2.5 rounded-xl hover:text-white hover:bg-zinc-900 transition-colors"
             active-class="text-white bg-zinc-900 font-bold"
           >
-            Каталог
-          </NuxtLink>
-          <NuxtLink
-            to="/catalog?type=2"
-            class="px-4 py-2.5 rounded-xl hover:text-white hover:bg-zinc-900 transition-colors"
-            active-class="text-white bg-zinc-900 font-bold"
-          >
-            Манхва
-          </NuxtLink>
-          <NuxtLink
-            to="/catalog?type=3"
-            class="px-4 py-2.5 rounded-xl hover:text-white hover:bg-zinc-900 transition-colors"
-            active-class="text-white bg-zinc-900 font-bold"
-          >
-            Маньхуа
-          </NuxtLink>
-          <NuxtLink
-            to="/catalog?type=1"
-            class="px-4 py-2.5 rounded-xl hover:text-white hover:bg-zinc-900 transition-colors"
-            active-class="text-white bg-zinc-900 font-bold"
-          >
-            Манга
+            {{ link.label }}
           </NuxtLink>
         </nav>
       </div>
@@ -104,7 +122,7 @@ onUnmounted(() => {
           :title="isMobileSearchOpen ? 'Закрыть поиск' : 'Открыть поиск'"
           @click="toggleMobileSearch"
         >
-          <X v-if="isMobileSearchOpen" class="w-5 h-5 text-amber-400" />
+          <X v-if="isMobileSearchOpen" class="w-5 h-5" :class="contentSourceStore.accentText" />
           <Search v-else class="w-5 h-5" />
         </button>
 

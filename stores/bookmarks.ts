@@ -10,6 +10,7 @@ export interface BookmarkItem {
   coverUrl: string
   status: BookmarkStatus
   updatedAt: number
+  contentType?: 'manga' | 'novel'
 }
 
 export const BOOKMARK_LABELS: Record<BookmarkStatus, string> = {
@@ -57,8 +58,9 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
   }
 
   const setBookmark = (
-    manga: { id: string; title: string; altTitle?: string; coverUrl: string },
-    status: BookmarkStatus
+    manga: { id: string; title: string; altTitle?: string; coverUrl: string; contentType?: 'manga' | 'novel' },
+    status: BookmarkStatus,
+    contentType?: 'manga' | 'novel'
   ) => {
     bookmarks.value[manga.id] = {
       mangaId: manga.id,
@@ -66,7 +68,8 @@ export const useBookmarksStore = defineStore('bookmarks', () => {
       altTitle: manga.altTitle,
       coverUrl: manga.coverUrl,
       status,
-      updatedAt: Date.now()
+      updatedAt: Date.now(),
+      contentType: contentType || manga.contentType || 'manga'
     }
     save()
   }

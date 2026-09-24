@@ -29,11 +29,13 @@ import {
   Award
 } from 'lucide-vue-next'
 import { useReManga, type MangaTitle } from '~/composables/useReManga'
+import { useContentSourceStore } from '~/stores/contentSource'
 import MangaCard from '~/components/MangaCard.vue'
 import AsyncImage from '~/components/AsyncImage.vue'
 import SpinnerArrow from '~/components/SpinnerArrow.vue'
 
 const { getMangaList, getTrendingTitles } = useReManga()
+const contentSourceStore = useContentSourceStore()
 
 const activeTab = ref<'popular' | 'latest' | 'manhwa' | 'manhua'>('popular')
 const mangaItems = ref<MangaTitle[]>([])
@@ -52,12 +54,22 @@ const page = ref(1)
 const hasMore = ref(true)
 const loadMoreTrigger = ref<HTMLElement | null>(null)
 
-const tabs = [
-  { id: 'popular', label: 'Популярное', icon: Flame },
-  { id: 'latest', label: 'Новые главы', icon: Clock },
-  { id: 'manhwa', label: 'Корейская манхва', icon: Layers },
-  { id: 'manhua', label: 'Китайская маньхуа', icon: Sparkles }
-] as const
+const tabs = computed(() => {
+  if (contentSourceStore.isRanobe) {
+    return [
+      { id: 'popular' as const, label: 'Популярное', icon: Flame },
+      { id: 'latest' as const, label: 'Новые главы', icon: Clock },
+      { id: 'manhwa' as const, label: 'Корейские новеллы', icon: Layers },
+      { id: 'manhua' as const, label: 'Китайские новеллы', icon: Sparkles }
+    ]
+  }
+  return [
+    { id: 'popular' as const, label: 'Популярное', icon: Flame },
+    { id: 'latest' as const, label: 'Новые главы', icon: Clock },
+    { id: 'manhwa' as const, label: 'Корейская манхва', icon: Layers },
+    { id: 'manhua' as const, label: 'Китайская маньхуа', icon: Sparkles }
+  ]
+})
 
 interface CollectionSubItem {
   id: string
@@ -84,7 +96,7 @@ interface CollectionCategory {
   items: CollectionSubItem[]
 }
 
-const collectionCategories: CollectionCategory[] = [
+const mangaCollectionCategories: CollectionCategory[] = [
   {
     id: 'trope',
     label: 'По тропу',
@@ -213,8 +225,183 @@ const collectionCategories: CollectionCategory[] = [
   }
 ]
 
+const ranobeCollectionCategories: CollectionCategory[] = [
+  {
+    id: 'trope',
+    label: 'По тропу',
+    icon: Compass,
+    tagline: 'Любимые сюжетные архетипы новелл: реинкарнации, ЛитРПГ, системы и читы',
+    activeCircleClass: 'bg-gradient-to-br from-blue-400/40 via-blue-500/25 to-indigo-600/35 text-blue-200 ring-2 ring-blue-400 ring-offset-4 ring-offset-zinc-950 shadow-xl shadow-blue-500/30 scale-105 border border-blue-400/80',
+    inactiveCircleClass: 'bg-gradient-to-br from-blue-500/15 via-indigo-500/10 to-zinc-900/90 text-blue-400/80 border border-blue-500/30 hover:border-blue-400/60 hover:from-blue-500/25 hover:text-blue-300',
+    activeLabelClass: 'text-blue-400',
+    dotClass: 'bg-blue-400',
+    items: [
+      {
+        id: 'reincarnation',
+        label: 'Реинкарнация и перерождение',
+        emoji: '🌀',
+        params: { categories: 13, ordering: '-votes' }
+      },
+      {
+        id: 'isekai_novels',
+        label: 'Попаданцы (Исекай)',
+        emoji: '🏰',
+        params: { genres: 56, ordering: '-votes' }
+      },
+      {
+        id: 'litrpg_novels',
+        label: 'ЛитРПГ и Системы прокачки',
+        emoji: '🎮',
+        params: { genres: 57, ordering: '-votes' }
+      },
+      {
+        id: 'cheats_op',
+        label: 'Читы и Сила бога',
+        emoji: '⚡',
+        params: { categories: 158, ordering: '-votes' }
+      },
+      {
+        id: 'survival_game',
+        label: 'Игры на выживание',
+        emoji: '⚔️',
+        params: { categories: 144, ordering: '-votes' }
+      },
+      {
+        id: 'vr_gaming',
+        label: 'Виртуальная реальность (VR)',
+        emoji: '🕶️',
+        params: { categories: 167, ordering: '-votes' }
+      },
+      {
+        id: 'battle_fantasy',
+        label: 'Боевое фэнтези',
+        emoji: '🔥',
+        params: { categories: 170, ordering: '-votes' }
+      },
+      {
+        id: 'power_struggle',
+        label: 'Борьба за власть и интриги',
+        emoji: '👑',
+        params: { categories: 54, ordering: '-votes' }
+      },
+      {
+        id: 'reverse_harem',
+        label: 'Обратный Гарем',
+        emoji: '🌹',
+        params: { categories: 40, ordering: '-votes' }
+      }
+    ]
+  },
+  {
+    id: 'mood',
+    label: 'По настроению',
+    icon: Smile,
+    tagline: 'Истории под любое состояние — от яростного боевика до романтических новелл',
+    activeCircleClass: 'bg-gradient-to-br from-rose-400/40 via-pink-500/25 to-purple-600/35 text-pink-200 ring-2 ring-rose-400 ring-offset-4 ring-offset-zinc-950 shadow-xl shadow-rose-500/30 scale-105 border border-rose-400/80',
+    inactiveCircleClass: 'bg-gradient-to-br from-rose-500/15 via-pink-500/10 to-zinc-900/90 text-rose-400/80 border border-rose-500/30 hover:border-rose-400/60 hover:from-rose-500/25 hover:text-pink-300',
+    activeLabelClass: 'text-rose-400',
+    dotClass: 'bg-rose-400',
+    items: [
+      {
+        id: 'action_novels',
+        label: 'Ураганный экшен (Боевик)',
+        emoji: '💥',
+        params: { genres: 59, ordering: '-votes' }
+      },
+      {
+        id: 'romance_novels',
+        label: 'Любовные романы',
+        emoji: '💖',
+        params: { genres: 62, ordering: '-votes' }
+      },
+      {
+        id: 'dark_fantasy_novel',
+        label: 'Тёмное фэнтези',
+        emoji: '💀',
+        params: { categories: 172, ordering: '-votes' }
+      },
+      {
+        id: 'urban_fantasy_novel',
+        label: 'Городское фэнтези',
+        emoji: '🌆',
+        params: { categories: 171, ordering: '-votes' }
+      },
+      {
+        id: 'suspense_thriller',
+        label: 'Триллер и саспенс',
+        emoji: '🕵️',
+        params: { genres: 67, ordering: '-votes' }
+      },
+      {
+        id: 'comedy_novel',
+        label: 'Поржать (Комедия и юмор)',
+        emoji: '😂',
+        params: { genres: 53, ordering: '-votes' }
+      },
+      {
+        id: 'time_travel_novel',
+        label: 'Путешествия во времени',
+        emoji: '⏳',
+        params: { categories: 43, ordering: '-votes' }
+      }
+    ]
+  },
+  {
+    id: 'format',
+    label: 'По формату',
+    icon: Trophy,
+    tagline: 'Мировые школы новелл, авторские вселенные и признанные шедевры',
+    activeCircleClass: 'bg-gradient-to-br from-sky-400/40 via-cyan-500/25 to-blue-600/35 text-cyan-200 ring-2 ring-sky-400 ring-offset-4 ring-offset-zinc-950 shadow-xl shadow-sky-500/30 scale-105 border border-sky-400/80',
+    inactiveCircleClass: 'bg-gradient-to-br from-sky-500/15 via-indigo-500/10 to-zinc-900/90 text-sky-400/80 border border-sky-500/30 hover:border-sky-400/70 hover:from-sky-500/25 hover:text-cyan-300',
+    activeLabelClass: 'text-sky-400',
+    dotClass: 'bg-sky-400',
+    items: [
+      {
+        id: 'korean_novels',
+        label: 'Корейские веб-новеллы',
+        emoji: '🇰🇷',
+        params: { types: 10, ordering: '-votes' }
+      },
+      {
+        id: 'chinese_novels',
+        label: 'Китайские новеллы (Сянься/Уся)',
+        emoji: '🇨🇳',
+        params: { types: 11, ordering: '-votes' }
+      },
+      {
+        id: 'japanese_light_novels',
+        label: 'Японские ранобэ (Light Novel)',
+        emoji: '🇯🇵',
+        params: { types: 9, ordering: '-votes' }
+      },
+      {
+        id: 'author_novels',
+        label: 'Оригинальные авторские новеллы',
+        emoji: '✍️',
+        params: { types: 8, ordering: '-votes' }
+      },
+      {
+        id: 'top_voted_novels',
+        label: 'Абсолютный топ читателей',
+        emoji: '⭐',
+        params: { ordering: '-votes' }
+      },
+      {
+        id: 'club_9_novels',
+        label: 'Клуб 9.0+ (Шедевры)',
+        emoji: '🏆',
+        params: { ordering: '-rating' }
+      }
+    ]
+  }
+]
+
+const collectionCategories = computed<CollectionCategory[]>(() => {
+  return contentSourceStore.isRanobe ? ranobeCollectionCategories : mangaCollectionCategories
+})
+
 const selectedCategoryId = ref<'trope' | 'mood' | 'format'>('trope')
-const selectedSubId = ref('op_mc')
+const selectedSubId = ref(contentSourceStore.isRanobe ? 'reincarnation' : 'op_mc')
 
 // In-memory cache for collections: subKey -> { items: MangaTitle[], page: number, hasMore: boolean }
 const collectionCache = ref<Record<string, { items: MangaTitle[]; page: number; hasMore: boolean }>>({})
@@ -237,14 +424,14 @@ const gridColumns = computed(() => {
 const targetItemCount = computed(() => visibleRows.value * gridColumns.value)
 
 const currentCategory = computed(() =>
-  collectionCategories.find(c => c.id === selectedCategoryId.value) || collectionCategories[0]
+  collectionCategories.value.find(c => c.id === selectedCategoryId.value) || collectionCategories.value[0]
 )
 
 const currentSubItem = computed(() =>
   currentCategory.value.items.find(i => i.id === selectedSubId.value) || currentCategory.value.items[0]
 )
 
-const activeCollectionKey = computed(() => `${selectedCategoryId.value}_${selectedSubId.value}`)
+const activeCollectionKey = computed(() => `${contentSourceStore.mode}_${selectedCategoryId.value}_${selectedSubId.value}`)
 
 const displayedCollectionItems = computed(() => {
   const cached = collectionCache.value[activeCollectionKey.value]
@@ -281,7 +468,7 @@ const selectSubItem = async (subId: string) => {
 
   isLoadingSubCollection.value = true
   try {
-    const sub = currentSubItem.value
+    const sub = currentCategory.value.items.find(i => i.id === subId) || currentSubItem.value
     const pageToFetch = cached ? cached.page + 1 : 1
     const res = await getMangaList({
       page: pageToFetch,
@@ -373,8 +560,9 @@ const loadCuratedSections = async () => {
     isLoadingPopularToday.value = false
   }
 
-  // 4. Initial Collection Sub-item (ГГ имба)
-  selectSubItem('op_mc')
+  // 4. Initial Collection Sub-item
+  const initialSub = contentSourceStore.isRanobe ? 'reincarnation' : 'op_mc'
+  selectSubItem(initialSub)
 }
 
 const loadData = async (reset = false) => {
@@ -399,10 +587,10 @@ const loadData = async (reset = false) => {
       ordering = '-chapter_date'
     } else if (activeTab.value === 'manhwa') {
       ordering = '-votes'
-      types = 2
+      types = contentSourceStore.isRanobe ? 10 : 2
     } else if (activeTab.value === 'manhua') {
       ordering = '-votes'
-      types = 3
+      types = contentSourceStore.isRanobe ? 11 : 3
     }
 
     const res = await getMangaList({
@@ -457,6 +645,18 @@ watch(activeTab, () => {
   loadData(true)
 })
 
+watch(() => contentSourceStore.mode, () => {
+  collectionCache.value = {}
+  featuredItems.value = []
+  trendingItems.value = []
+  popularTodayItems.value = []
+  activeTab.value = 'popular'
+  selectedCategoryId.value = 'trope'
+  selectedSubId.value = contentSourceStore.isRanobe ? 'reincarnation' : 'op_mc'
+  loadData(true)
+  loadCuratedSections()
+})
+
 onMounted(() => {
   loadData(true)
   loadCuratedSections()
@@ -471,8 +671,8 @@ onMounted(() => {
       <div class="flex items-center justify-between mb-3 sm:mb-6">
         <div class="space-y-0.5 sm:space-y-1.5">
           <h2 class="text-lg sm:text-3xl font-black tracking-tight text-white flex items-center gap-2 sm:gap-3">
-            <Sparkles class="w-5 h-5 sm:w-7 sm:h-7 text-amber-400" />
-            <span>Главные хиты</span>
+            <Sparkles class="w-5 h-5 sm:w-7 sm:h-7" :class="contentSourceStore.accentText" />
+            <span>{{ contentSourceStore.isRanobe ? 'Главные новеллы' : 'Главные хиты' }}</span>
           </h2>
           <p class="text-xs sm:text-base text-zinc-400 font-medium">Самые читаемые произведения</p>
         </div>
@@ -572,8 +772,8 @@ onMounted(() => {
       <!-- Section Header with clear bottom spacing to prevent text overlap -->
       <div class="space-y-1.5 sm:space-y-2 pb-2">
         <h2 class="text-xl sm:text-3xl font-black tracking-tight text-white flex items-center gap-2.5 sm:gap-3">
-          <component :is="currentCategory.icon" class="w-6 h-6 sm:w-8 sm:h-8 text-amber-400 transition-colors" />
-          <span>Выбери свою мангу</span>
+          <component :is="currentCategory.icon" class="w-6 h-6 sm:w-8 sm:h-8 transition-colors" :class="contentSourceStore.accentText" />
+          <span>{{ contentSourceStore.isRanobe ? 'Выбери своё ранобэ' : 'Выбери свою мангу' }}</span>
         </h2>
         <p class="text-xs sm:text-base text-zinc-400 font-medium leading-relaxed">
           {{ currentCategory.tagline }}
@@ -629,7 +829,7 @@ onMounted(() => {
           :class="[
             'flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm transition-all whitespace-nowrap border shrink-0 active:scale-95 cursor-pointer font-bold',
             selectedSubId === sub.id
-              ? 'bg-amber-400 text-zinc-950 border-amber-400 shadow-lg shadow-amber-500/20 font-black'
+              ? (contentSourceStore.isRanobe ? 'bg-blue-500 text-white border-blue-500 shadow-lg shadow-blue-500/20 font-black' : 'bg-amber-400 text-zinc-950 border-amber-400 shadow-lg shadow-amber-500/20 font-black')
               : 'bg-zinc-900/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border-zinc-800'
           ]"
           @click="selectSubItem(sub.id)"
@@ -677,9 +877,9 @@ onMounted(() => {
               class="w-full sm:w-auto min-w-[240px] px-8 py-3.5 sm:py-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 text-zinc-100 hover:text-white text-xs sm:text-sm font-bold border border-zinc-800 hover:border-zinc-700 transition-all flex items-center justify-center gap-2.5 shadow-xl shadow-black/40 active:scale-[0.98] cursor-pointer disabled:opacity-50"
               @click="loadMoreRows"
             >
-              <SpinnerArrow v-if="isLoadingMoreRows" class="w-4 h-4 text-amber-400" />
-              <ChevronDown v-else class="w-4 h-4 text-amber-400" />
-              <span>{{ isLoadingMoreRows ? 'Подгружаем мангу...' : 'Показать еще' }}</span>
+              <SpinnerArrow v-if="isLoadingMoreRows" class="w-4 h-4" :class="contentSourceStore.accentText" />
+              <ChevronDown v-else class="w-4 h-4" :class="contentSourceStore.accentText" />
+              <span>{{ isLoadingMoreRows ? (contentSourceStore.isRanobe ? 'Подгружаем ранобэ...' : 'Подгружаем мангу...') : 'Показать еще' }}</span>
             </button>
           </div>
         </div>
@@ -687,7 +887,7 @@ onMounted(() => {
         <!-- Empty state fallback -->
         <div v-else class="text-center py-12 text-zinc-500 space-y-2 bg-zinc-900/20 rounded-2xl border border-zinc-800/60 p-6">
           <BookOpen class="w-10 h-10 mx-auto opacity-40 text-zinc-400" />
-          <p class="font-bold text-sm sm:text-base text-zinc-300">Тайтлы по данному фильтру пока не найдены</p>
+          <p class="font-bold text-sm sm:text-base text-zinc-300">{{ contentSourceStore.isRanobe ? 'Ранобэ по данному фильтру пока не найдены' : 'Тайтлы по данному фильтру пока не найдены' }}</p>
           <p class="text-xs text-zinc-500">Попробуйте выбрать другой подраздел или формат</p>
         </div>
       </div>
@@ -788,7 +988,7 @@ onMounted(() => {
         <div ref="loadMoreTrigger" class="h-16 w-full flex items-center justify-center">
           <div v-if="isLoadingMore" class="flex items-center gap-3 text-zinc-300 text-sm sm:text-base font-semibold py-4">
             <SpinnerArrow class="w-5 h-5 text-zinc-300" />
-            <span>Загрузка новых тайтлов...</span>
+            <span>{{ contentSourceStore.isRanobe ? 'Загрузка новых ранобэ...' : 'Загрузка новых тайтлов...' }}</span>
           </div>
           <div v-else-if="!hasMore && mangaItems.length > 0" class="text-zinc-500 text-sm font-semibold py-8 text-center">
             ✦ Все доступные произведения в данной категории загружены ✦
@@ -799,7 +999,7 @@ onMounted(() => {
       <!-- Empty State -->
       <div v-else class="text-center py-24 text-zinc-500 space-y-3">
         <BookOpen class="w-14 h-14 mx-auto opacity-40 text-zinc-400" />
-        <p class="text-base sm:text-lg font-medium">Тайтлы в данной категории не найдены</p>
+        <p class="text-base sm:text-lg font-medium">{{ contentSourceStore.isRanobe ? 'Ранобэ в данной категории не найдены' : 'Тайтлы в данной категории не найдены' }}</p>
       </div>
     </section>
   </div>

@@ -34,6 +34,7 @@ import {
 import AsyncImage from '~/components/AsyncImage.vue'
 import SpinnerArrow from '~/components/SpinnerArrow.vue'
 import { useHistoryStore } from '~/stores/history'
+import { useContentSourceStore } from '~/stores/contentSource'
 
 const route = useRoute()
 const router = useRouter()
@@ -42,6 +43,13 @@ const mangaId = computed(() => route.params.id as string)
 const { getMangaById, getAllChaptersGrouped } = useReManga()
 const bookmarksStore = useBookmarksStore()
 const historyStore = useHistoryStore()
+const contentSourceStore = useContentSourceStore()
+
+if (route.query.type === 'novel' && !contentSourceStore.isRanobe) {
+  contentSourceStore.setMode('ranobe')
+} else if (route.query.type === 'manga' && contentSourceStore.isRanobe) {
+  contentSourceStore.setMode('manga')
+}
 
 const manga = ref<MangaTitle | null>(null)
 const volumeGroups = ref<VolumeGroup[]>([])
@@ -54,6 +62,9 @@ const isSortAsc = ref(true)
 const chapterSearch = ref('')
 const isBookmarkMenuOpen = ref(false)
 const isDescriptionExpanded = ref(false)
+
+const isNovel = computed(() => route.query.type === 'novel' || manga.value?.contentType === 'novel' || (route.query.type !== 'manga' && contentSourceStore.isRanobe))
+const readUrl = (chapterId: string) => `/read/${chapterId}?dir=${manga.value?.id || mangaId.value}&type=${isNovel.value ? 'novel' : 'manga'}`
 
 const { y: scrollY } = useWindowScroll()
 
@@ -108,7 +119,7 @@ const firstChapter = computed(() => {
 const loadChaptersForBranch = async (branchId: number) => {
   isLoadingChapters.value = true
   try {
-    const res = await getAllChaptersGrouped(branchId)
+    const res = await getAllChaptersGrouped(branchId, isNovel.value)
     volumeGroups.value = res.groups
     allChaptersList.value = res.allChapters
   } catch (err: any) {
@@ -122,7 +133,9 @@ const loadManga = async () => {
   isLoading.value = true
   error.value = null
   try {
-    const mangaData = await getMangaById(mangaId.value)
+    const fallbackTitle = (route.query.title as string) || ''
+    const preferNovel = route.query.type === 'novel' ? true : (route.query.type === 'manga' ? false : undefined)
+    const mangaData = await getMangaById(mangaId.value, fallbackTitle, preferNovel)
     manga.value = mangaData
 
     if (mangaData.branches && mangaData.branches.length > 0) {
@@ -136,6 +149,10 @@ const loadManga = async () => {
   }
 }
 
+watch(() => contentSourceStore.mode, () => {
+  loadManga()
+})
+
 watch(selectedBranchId, (newBranch) => {
   if (newBranch) {
     loadChaptersForBranch(newBranch)
@@ -148,7 +165,7 @@ const toggleSort = () => {
 
 const setBookmark = (status: BookmarkStatus) => {
   if (!manga.value) return
-  bookmarksStore.setBookmark(manga.value, status)
+  bookmarksStore.setBookmark(manga.value, status, isNovel.value ? 'novel' : 'manga')
   isBookmarkMenuOpen.value = false
 }
 
@@ -238,7 +255,7 @@ onUnmounted(() => {
             </div>
           </div>
           <div class="flex-1 min-w-0 space-y-1.5 pt-0.5">
-            <div v-if="manga.avgRating" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-black rounded-lg bg-amber-400 text-zinc-950 font-mono">
+            <div v-if="manga.avgRating" :class="['inline-flex items-center gap-1 px-2 py-0.5 text-xs font-black rounded-lg font-mono', isNovel ? 'bg-blue-400 text-zinc-950' : 'bg-amber-400 text-zinc-950']">
               <Star class="w-3 h-3 fill-current" />
               {{ manga.avgRating }}
             </div>
@@ -265,16 +282,16 @@ onUnmounted(() => {
         <div class="flex sm:hidden flex-col gap-2 w-full">
           <NuxtLink
             v-if="lastRead"
-            :to="`/read/${lastRead.chapterId}?dir=${manga.id}`"
-            class="w-full min-h-[46px] py-2.5 px-4 rounded-xl bg-amber-400 active:bg-amber-300 text-zinc-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
+            :to="readUrl(lastRead.chapterId)"
+            :class="['w-full min-h-[46px] py-2.5 px-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all', contentSourceStore.accentButton]"
           >
             <BookOpen class="w-4 h-4" />
             <span>Продолжить (Гл. {{ lastRead.chapterNumber }})</span>
           </NuxtLink>
           <NuxtLink
             v-else-if="firstChapter"
-            :to="`/read/${firstChapter.id}?dir=${manga.id}`"
-            class="w-full min-h-[46px] py-2.5 px-4 rounded-xl bg-amber-400 active:bg-amber-300 text-zinc-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 active:scale-[0.98] transition-all"
+            :to="readUrl(firstChapter.id)"
+            :class="['w-full min-h-[46px] py-2.5 px-4 rounded-xl font-black text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-all', contentSourceStore.accentButton]"
           >
             <BookOpen class="w-4 h-4" />
             <span>Начать читать (Гл. {{ firstChapter.chapter }})</span>
@@ -287,7 +304,7 @@ onUnmounted(() => {
               @click="isBookmarkMenuOpen = true"
             >
               <div class="flex items-center gap-2 truncate">
-                <Bookmark :class="['w-4 h-4 shrink-0', bookmark ? 'fill-amber-400 text-amber-400' : 'text-zinc-400']" />
+                <Bookmark :class="['w-4 h-4 shrink-0', bookmark ? (isNovel ? 'fill-blue-400 text-blue-400' : 'fill-amber-400 text-amber-400') : 'text-zinc-400']" />
                 <span class="truncate">{{ bookmark ? BOOKMARK_LABELS[bookmark.status] : 'В закладки' }}</span>
               </div>
               <ChevronDown class="w-3.5 h-3.5 text-zinc-500 shrink-0 ml-1" />
@@ -295,7 +312,7 @@ onUnmounted(() => {
 
             <NuxtLink
               v-if="lastRead && firstChapter"
-              :to="`/read/${firstChapter.id}?dir=${manga.id}`"
+              :to="readUrl(firstChapter.id)"
               class="min-h-[42px] py-2 px-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 border bg-zinc-900 active:bg-zinc-800 text-zinc-300 border-zinc-800 active:scale-[0.98] transition-all shrink-0"
             >
               С начала
@@ -320,7 +337,7 @@ onUnmounted(() => {
             </div>
             <!-- Rating badge -->
             <div v-if="manga.avgRating" class="absolute top-2.5 sm:top-3.5 right-2.5 sm:right-3.5">
-              <span class="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-black rounded-lg sm:rounded-xl bg-amber-400 text-zinc-950 shadow-lg font-mono">
+              <span :class="['inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-black rounded-lg sm:rounded-xl shadow-lg font-mono', isNovel ? 'bg-blue-400 text-zinc-950' : 'bg-amber-400 text-zinc-950']">
                 <Star class="w-3 sm:w-3.5 h-3 sm:h-3.5 fill-current" />
                 {{ manga.avgRating }}
               </span>
@@ -335,7 +352,7 @@ onUnmounted(() => {
               @click="isBookmarkMenuOpen = true"
             >
               <div class="flex items-center gap-2 sm:gap-2.5">
-                <Bookmark :class="['w-4 h-4 sm:w-5 sm:h-5', bookmark ? 'fill-amber-400 text-amber-400' : 'text-zinc-400']" />
+                <Bookmark :class="['w-4 h-4 sm:w-5 sm:h-5', bookmark ? (isNovel ? 'fill-blue-400 text-blue-400' : 'fill-amber-400 text-amber-400') : 'text-zinc-400']" />
                 <span class="truncate">{{ bookmark ? BOOKMARK_LABELS[bookmark.status] : 'В закладки' }}</span>
               </div>
               <ChevronDown class="w-4 h-4 text-zinc-400 shrink-0" />
@@ -407,7 +424,7 @@ onUnmounted(() => {
               :to="{ path: '/catalog', query: { q: genre } }"
               class="group inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium bg-zinc-900/70 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-800 transition-all shadow-xs"
             >
-              <span class="text-zinc-500 group-hover:text-amber-400 transition-colors font-mono">#</span>
+              <span :class="['transition-colors font-mono', isNovel ? 'text-zinc-500 group-hover:text-blue-400' : 'text-zinc-500 group-hover:text-amber-400']">#</span>
               <span>{{ genre }}</span>
             </NuxtLink>
 
@@ -434,7 +451,7 @@ onUnmounted(() => {
             <button
               v-if="manga.description && manga.description.length > 150"
               type="button"
-              class="sm:hidden mt-2 text-xs font-bold text-amber-400 hover:underline flex items-center gap-1 active:opacity-70 py-1"
+              :class="['sm:hidden mt-2 text-xs font-bold hover:underline flex items-center gap-1 active:opacity-70 py-1', isNovel ? 'text-blue-400' : 'text-amber-400']"
               @click="isDescriptionExpanded = !isDescriptionExpanded"
             >
               {{ isDescriptionExpanded ? 'Свернуть описание' : 'Читать полностью...' }}
@@ -445,8 +462,8 @@ onUnmounted(() => {
           <div class="hidden sm:flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-4 pt-1">
             <NuxtLink
               v-if="lastRead"
-              :to="`/read/${lastRead.chapterId}?dir=${manga.id}`"
-              class="w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black text-sm sm:text-base flex items-center justify-center gap-2.5 shadow-xl shadow-amber-500/20 active:scale-[0.98] transition-transform"
+              :to="readUrl(lastRead.chapterId)"
+              :class="['w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform', contentSourceStore.accentButton]"
             >
               <BookOpen class="w-5 h-5" />
               <span>Продолжить чтение (Гл. {{ lastRead.chapterNumber }})</span>
@@ -454,12 +471,12 @@ onUnmounted(() => {
 
             <NuxtLink
               v-if="firstChapter"
-              :to="`/read/${firstChapter.id}?dir=${manga.id}`"
+              :to="readUrl(firstChapter.id)"
               :class="[
                 'w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-2.5 transition-transform active:scale-[0.98]',
                 lastRead
                   ? 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800'
-                  : 'bg-amber-400 hover:bg-amber-300 text-zinc-950 shadow-xl shadow-amber-500/20'
+                  : contentSourceStore.accentButton
               ]"
             >
               <BookOpen class="w-5 h-5" />
@@ -508,7 +525,7 @@ onUnmounted(() => {
           <NuxtLink
             v-for="ch in filteredChapters"
             :key="ch.id"
-            :to="`/read/${ch.id}?dir=${manga.id}`"
+            :to="readUrl(ch.id)"
             class="group flex items-center justify-between py-3 sm:py-4 px-2 sm:px-3 rounded-xl hover:bg-zinc-900/60 active:bg-zinc-900 active:scale-[0.99] transition-all min-h-[52px]"
           >
             <div class="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -516,7 +533,7 @@ onUnmounted(() => {
                 :class="[
                   'w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center font-black text-xs sm:text-sm flex-shrink-0 transition-colors border',
                   ch.isPaid
-                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                    ? (isNovel ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : 'bg-amber-500/10 text-amber-400 border-amber-500/30')
                     : isChapterRead(ch.id, ch.chapter)
                       ? 'bg-zinc-800 text-white border-zinc-700'
                       : 'bg-zinc-950 text-zinc-400 border-zinc-800 group-hover:bg-white group-hover:text-zinc-950'
@@ -534,7 +551,7 @@ onUnmounted(() => {
                   </span>
                   <span
                     v-if="ch.isPaid"
-                    class="px-1.5 py-0.5 text-[10px] sm:text-xs font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0"
+                    :class="['px-1.5 py-0.5 text-[10px] sm:text-xs font-bold rounded shrink-0 border', isNovel ? 'bg-blue-500/20 text-blue-300 border-blue-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30']"
                   >
                     Платная
                   </span>
@@ -579,7 +596,7 @@ onUnmounted(() => {
       <button
         v-if="scrollY > 500"
         type="button"
-        class="fixed bottom-24 md:bottom-8 right-4 md:right-8 z-40 p-3 sm:px-4 sm:py-3 rounded-2xl bg-zinc-900 hover:bg-amber-400 text-zinc-300 hover:text-zinc-950 border border-zinc-700 shadow-lg transition-colors flex items-center gap-2 font-bold text-xs sm:text-sm cursor-pointer active:scale-95"
+        :class="['fixed bottom-24 md:bottom-8 right-4 md:right-8 z-40 p-3 sm:px-4 sm:py-3 rounded-2xl bg-zinc-900 text-zinc-300 border border-zinc-700 shadow-lg transition-colors flex items-center gap-2 font-bold text-xs sm:text-sm cursor-pointer active:scale-95', isNovel ? 'hover:bg-blue-500 hover:text-white' : 'hover:bg-amber-400 hover:text-zinc-950']"
         title="Наверх"
         @click="scrollToTop"
       >
@@ -608,7 +625,7 @@ onUnmounted(() => {
           <!-- Header -->
           <div class="flex items-center justify-between border-b border-zinc-800/80 pb-3">
             <div class="flex items-center gap-2">
-              <Bookmark class="w-5 h-5 text-amber-400" />
+              <Bookmark :class="['w-5 h-5', isNovel ? 'text-blue-400' : 'text-amber-400']" />
               <h3 class="text-base sm:text-lg font-black text-white">Добавить в закладки</h3>
             </div>
             <button
@@ -629,16 +646,16 @@ onUnmounted(() => {
               :class="[
                 'w-full min-h-[48px] px-4 py-3 rounded-xl text-left text-xs sm:text-sm font-bold flex items-center justify-between transition-colors border active:scale-[0.99]',
                 bookmark?.status === key
-                  ? 'bg-amber-400/10 text-amber-300 border-amber-400/30'
+                  ? (isNovel ? 'bg-blue-400/10 text-blue-300 border-blue-400/30' : 'bg-amber-400/10 text-amber-300 border-amber-400/30')
                   : 'bg-zinc-900/60 text-zinc-200 border-zinc-800/60 hover:bg-zinc-900 active:bg-zinc-800'
               ]"
               @click="setBookmark(key as BookmarkStatus)"
             >
               <span class="flex items-center gap-2.5">
-                <Bookmark :class="['w-4 h-4', bookmark?.status === key ? 'fill-amber-400 text-amber-400' : 'text-zinc-500']" />
+                <Bookmark :class="['w-4 h-4', bookmark?.status === key ? (isNovel ? 'fill-blue-400 text-blue-400' : 'fill-amber-400 text-amber-400') : 'text-zinc-500']" />
                 <span>{{ label }}</span>
               </span>
-              <Check v-if="bookmark?.status === key" class="w-4 h-4 text-amber-400" />
+              <Check v-if="bookmark?.status === key" class="w-4 h-4" :class="isNovel ? 'text-blue-400' : 'text-amber-400'" />
             </button>
           </div>
 

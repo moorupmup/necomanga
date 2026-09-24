@@ -62,7 +62,7 @@ export const setupBackButton = (router: ReturnType<typeof useRouter>, route: Ret
       } else if (window.history.length > 1) {
         router.back()
       } else if (route.path.startsWith('/read/') && route.query.dir) {
-        router.push(`/manga/${route.query.dir}`)
+        router.push({ path: `/manga/${route.query.dir}`, query: route.query.type ? { type: route.query.type } : {} })
       } else {
         // Fallback to home if no previous history entry
         router.push('/')
