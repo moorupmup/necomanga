@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-vue-next'
+import { RotateCcw } from 'lucide-vue-next'
 
 const props = withDefaults(defineProps<{
   src: string
@@ -30,6 +30,7 @@ const imageRef = ref<HTMLImageElement | null>(null)
 const scale = ref(1)
 const translateX = ref(0)
 const translateY = ref(0)
+const originPercent = ref({ x: 50, y: 50 })
 const isAnimating = ref(false)
 const isPinching = ref(false)
 const isPanning = ref(false)
@@ -58,7 +59,10 @@ const resetZoom = (animated = true) => {
     isAnimating.value = true
     setTimeout(() => {
       isAnimating.value = false
-    }, 280)
+      originPercent.value = { x: 50, y: 50 }
+    }, 260)
+  } else {
+    originPercent.value = { x: 50, y: 50 }
   }
   scale.value = 1
   translateX.value = 0
@@ -84,44 +88,59 @@ const getCenter = (t1: Touch, t2: Touch) => {
 }
 
 const clampPan = (targetScale: number, tx: number, ty: number) => {
-  if (!containerRef.value) return { x: tx, y: ty }
-  const rect = containerRef.value.getBoundingClientRect()
-  const maxTx = Math.max(0, (rect.width * (targetScale - 1)) / 2)
-  const maxTy = Math.max(0, (rect.height * (targetScale - 1)) / 2)
+  const target = imageRef.value || containerRef.value
+  if (!target) return { x: tx, y: ty }
+  const rect = target.getBoundingClientRect()
+  const currentScale = scale.value > 1 ? scale.value : 1
+  const W = rect.width / currentScale
+  const H = rect.height / currentScale
+
+  const ox = (originPercent.value.x / 100) * W
+  const oy = (originPercent.value.y / 100) * H
+  const S = targetScale
+
+  const minTx = -(S - 1) * (W - ox)
+  const maxTx = (S - 1) * ox
+  const minTy = -(S - 1) * (H - oy)
+  const maxTy = (S - 1) * oy
+
+  const lowerX = Math.min(minTx, maxTx)
+  const upperX = Math.max(minTx, maxTx)
+  const lowerY = Math.min(minTy, maxTy)
+  const upperY = Math.max(minTy, maxTy)
 
   return {
-    x: Math.max(-maxTx, Math.min(maxTx, tx)),
-    y: Math.max(-maxTy, Math.min(maxTy, ty))
+    x: Math.max(lowerX, Math.min(upperX, tx)),
+    y: Math.max(lowerY, Math.min(upperY, ty))
   }
 }
 
 const zoomToPoint = (targetScale: number, clientX: number, clientY: number) => {
-  if (!containerRef.value) return
-  const rect = containerRef.value.getBoundingClientRect()
-  
+  const target = imageRef.value || containerRef.value
+  if (!target) return
+  const rect = target.getBoundingClientRect()
+
   isAnimating.value = true
   setTimeout(() => {
     isAnimating.value = false
-  }, 280)
+  }, 260)
 
   if (targetScale <= 1.05) {
     resetZoom(true)
     return
   }
 
-  // Calculate offset relative to center of image
-  const centerX = rect.left + rect.width / 2
-  const centerY = rect.top + rect.height / 2
-  const offsetX = clientX - centerX
-  const offsetY = clientY - centerY
+  // Calculate tap point as a percentage of the image surface
+  const tapX = Math.max(0, Math.min(rect.width, clientX - rect.left))
+  const tapY = Math.max(0, Math.min(rect.height, clientY - rect.top))
+  const ox = (tapX / rect.width) * 100
+  const oy = (tapY / rect.height) * 100
 
-  const newTx = -offsetX * (targetScale - 1)
-  const newTy = -offsetY * (targetScale - 1)
-
-  const clamped = clampPan(targetScale, newTx, newTy)
+  // Set transform-origin directly to finger coordinates!
+  originPercent.value = { x: ox, y: oy }
+  translateX.value = 0
+  translateY.value = 0
   scale.value = targetScale
-  translateX.value = clamped.x
-  translateY.value = clamped.y
 }
 
 const onTouchStart = (e: TouchEvent) => {
@@ -139,6 +158,22 @@ const onTouchStart = (e: TouchEvent) => {
     initialPinchDist = getDistance(e.touches[0], e.touches[1])
     initialScale = scale.value
     initialPinchCenter = getCenter(e.touches[0], e.touches[1])
+
+    const target = imageRef.value || containerRef.value
+    if (target) {
+      const rect = target.getBoundingClientRect()
+      const currentScale = scale.value > 1 ? scale.value : 1
+      const relX = (initialPinchCenter.x - rect.left) / currentScale
+      const relY = (initialPinchCenter.y - rect.top) / currentScale
+      const W = rect.width / currentScale
+      const H = rect.height / currentScale
+      originPercent.value = {
+        x: Math.max(0, Math.min(100, (relX / W) * 100)),
+        y: Math.max(0, Math.min(100, (relY / H) * 100))
+      }
+      translateX.value = 0
+      translateY.value = 0
+    }
     initialPan = { x: translateX.value, y: translateY.value }
   } else if (e.touches.length === 1) {
     const touch = e.touches[0]
@@ -159,7 +194,7 @@ const onTouchStart = (e: TouchEvent) => {
     }, 500)
 
     if (isZoomed.value) {
-      // 1 finger panning when already zoomed
+      // 1-finger panning while zoomed
       isPanning.value = true
       isAnimating.value = false
       initialPan = { x: translateX.value, y: translateY.value }
@@ -168,7 +203,7 @@ const onTouchStart = (e: TouchEvent) => {
 }
 
 const onTouchMove = (e: TouchEvent) => {
-  // Cancel long-press if finger moved or multiple fingers touch
+  // Cancel long-press if finger moved significantly
   if (longPressTimer) {
     if (e.touches.length > 1) {
       clearTimeout(longPressTimer)
@@ -184,13 +219,12 @@ const onTouchMove = (e: TouchEvent) => {
   }
 
   if (e.touches.length === 2 && isPinching.value) {
-    // Actively pinching
-    e.preventDefault() // prevent browser scroll/zoom
+    e.preventDefault()
     const dist = getDistance(e.touches[0], e.touches[1])
     if (initialPinchDist > 0) {
       const factor = dist / initialPinchDist
       const rawScale = initialScale * factor
-      const newScale = Math.min(Math.max(rawScale, 0.8), 4.5)
+      const newScale = Math.min(Math.max(rawScale, 0.85), 4.5)
 
       const center = getCenter(e.touches[0], e.touches[1])
       const dCenterX = center.x - initialPinchCenter.x
@@ -202,8 +236,7 @@ const onTouchMove = (e: TouchEvent) => {
       translateY.value = clamped.y
     }
   } else if (e.touches.length === 1 && isPanning.value && isZoomed.value) {
-    // Actively panning while zoomed
-    e.preventDefault() // prevent page scrolling while inspecting zoomed manga
+    e.preventDefault()
     const touch = e.touches[0]
     const dx = touch.clientX - touchStartPos.x
     const dy = touch.clientY - touchStartPos.y
@@ -258,7 +291,7 @@ const onTouchEnd = (e: TouchEvent) => {
       const timeSinceLastTap = now - lastTapTime
       const tapDistFromLast = Math.hypot(touch.clientX - lastTapPos.x, touch.clientY - lastTapPos.y)
 
-      if (timeSinceLastTap < 320 && tapDistFromLast < 40) {
+      if (timeSinceLastTap < 280 && tapDistFromLast < 45) {
         // Double tap confirmed!
         if (singleTapTimeout) {
           clearTimeout(singleTapTimeout)
@@ -269,10 +302,10 @@ const onTouchEnd = (e: TouchEvent) => {
         if (isZoomed.value) {
           resetZoom(true)
         } else {
-          zoomToPoint(2.5, touch.clientX, touch.clientY)
+          zoomToPoint(2.4, touch.clientX, touch.clientY)
         }
       } else {
-        // First tap candidate: wait to see if second tap follows
+        // First tap: record and wait briefly for possible second tap
         lastTapTime = now
         lastTapPos = { x: touch.clientX, y: touch.clientY }
 
@@ -280,7 +313,7 @@ const onTouchEnd = (e: TouchEvent) => {
           singleTapTimeout = setTimeout(() => {
             handleSingleTap(touch.clientX, touch.clientY)
             singleTapTimeout = null
-          }, 300)
+          }, 220)
         }
       }
     }
@@ -311,7 +344,7 @@ const onDoubleClick = (e: MouseEvent) => {
   if (isZoomed.value) {
     resetZoom(true)
   } else {
-    zoomToPoint(2.5, e.clientX, e.clientY)
+    zoomToPoint(2.4, e.clientX, e.clientY)
   }
 }
 
@@ -364,8 +397,8 @@ onUnmounted(() => {
 const transformStyle = computed(() => {
   return {
     transform: `translate3d(${translateX.value}px, ${translateY.value}px, 0) scale(${scale.value})`,
-    transformOrigin: 'center center',
-    transition: isAnimating.value ? 'transform 0.26s cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
+    transformOrigin: `${originPercent.value.x}% ${originPercent.value.y}%`,
+    transition: isAnimating.value ? 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)' : 'none',
     touchAction: isZoomed.value ? 'none' : 'pan-y'
   }
 })

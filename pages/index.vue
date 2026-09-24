@@ -682,7 +682,15 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <MangaSlider :items="featuredItems" />
+      <div class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8">
+        <div
+          v-for="item in featuredItems"
+          :key="item.id"
+          class="w-[140px] sm:w-auto flex-shrink-0 snap-start"
+        >
+          <MangaCard :manga="item" />
+        </div>
+      </div>
     </section>
 
     <!-- Trending Section (В тренде) -->
@@ -701,7 +709,25 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <MangaSlider :items="trendingItems" :is-loading="isLoadingTrending" />
+      <!-- Skeletons -->
+      <div v-if="isLoadingTrending" class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8">
+        <div
+          v-for="i in 8"
+          :key="i"
+          class="w-[140px] sm:w-auto flex-shrink-0 snap-start aspect-[2/3] rounded-lg bg-zinc-900/40 border border-zinc-800/60 animate-pulse"
+        ></div>
+      </div>
+
+      <!-- Items -->
+      <div v-else class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8">
+        <div
+          v-for="item in trendingItems"
+          :key="item.id"
+          class="w-[140px] sm:w-auto flex-shrink-0 snap-start"
+        >
+          <MangaCard :manga="item" />
+        </div>
+      </div>
     </section>
 
     <!-- Popular Today Section (Популярно сегодня) -->
@@ -720,7 +746,25 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <MangaSlider :items="popularTodayItems" :is-loading="isLoadingPopularToday" />
+      <!-- Skeletons -->
+      <div v-if="isLoadingPopularToday" class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8">
+        <div
+          v-for="i in 8"
+          :key="i"
+          class="w-[140px] sm:w-auto flex-shrink-0 snap-start aspect-[2/3] rounded-lg bg-zinc-900/40 border border-zinc-800/60 animate-pulse"
+        ></div>
+      </div>
+
+      <!-- Items -->
+      <div v-else class="flex sm:grid overflow-x-auto sm:overflow-visible gap-2.5 sm:gap-4 pb-2 sm:pb-0 scrollbar-none snap-x sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 min-[1120px]:grid-cols-8 xl:grid-cols-8">
+        <div
+          v-for="item in popularTodayItems"
+          :key="item.id"
+          class="w-[140px] sm:w-auto flex-shrink-0 snap-start"
+        >
+          <MangaCard :manga="item" />
+        </div>
+      </div>
     </section>
 
     <!-- Choose Your Manga Section (Выбери свою мангу: двухуровневый селектор + сетка 3 ряда с кнопкой +5 рядов) -->
