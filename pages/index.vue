@@ -682,7 +682,7 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <MangaSwiper :items="featuredItems" />
+      <MangaSlider :items="featuredItems" />
     </section>
 
     <!-- Trending Section (В тренде) -->
@@ -701,7 +701,7 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <MangaSwiper :items="trendingItems" :is-loading="isLoadingTrending" />
+      <MangaSlider :items="trendingItems" :is-loading="isLoadingTrending" />
     </section>
 
     <!-- Popular Today Section (Популярно сегодня) -->
@@ -720,7 +720,7 @@ onMounted(() => {
         </NuxtLink>
       </div>
 
-      <MangaSwiper :items="popularTodayItems" :is-loading="isLoadingPopularToday" />
+      <MangaSlider :items="popularTodayItems" :is-loading="isLoadingPopularToday" />
     </section>
 
     <!-- Choose Your Manga Section (Выбери свою мангу: двухуровневый селектор + сетка 3 ряда с кнопкой +5 рядов) -->
